@@ -3829,11 +3829,11 @@ commit 407394c0aac2db4a1978a7691035889db9924a01
 Author: Tim Gates <tim.gates@iress.com>
 Date:   Sun Oct 11 15:07:40 2020 +1100
 
-    docs: fix simple typo, paramters -> parameters (#589)
+    docs: fix simple typo, parameters -> parameters (#589)
     
     There is a small typo in src/x86/ffi.c.
     
-    Should read `parameters` rather than `paramters`.
+    Should read `parameters` rather than `parameters`.
 
 commit ead65ca8711aa07efc0453f67136aff82f33c01f
 Author: Anthony Green <green@moxielogic.com>
@@ -5485,8 +5485,8 @@ Date:   Wed May 2 06:19:58 2018 -0700
     
     * i386: Properly passing integer parameters in registers
     
-    For thiscall and fastcall, if the paramter passed as 64-bit integer or
-    struct, all following integer paramters will be passed on stack.
+    For thiscall and fastcall, if the parameter passed as 64-bit integer or
+    struct, all following integer parameters will be passed on stack.
     
     * test: Add ABI_ATTR to callback_code
     
