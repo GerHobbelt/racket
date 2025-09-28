@@ -349,6 +349,11 @@
                  (car p)
                  " is not a name for a generic interface"
                  (cadr p)))
+          (unless (list? (syntax-e gen-defs))
+            (bad "the second argument to the"
+                 (car p)
+                 " is not a parenthesized sequence of method definitions"
+                 gen-defs))
           (loop (list* #'#:property
                        (quasisyntax/loc gen-id
                          (generic-property #,gen-id))
@@ -996,6 +1001,9 @@
                  (struct-field-info-list compile-time-info))))
 
   (define-for-syntax (struct-copy-core stx)
+    (syntax-case stx ()
+      [(_ _ _ . _) (void)]
+      [_ (raise-syntax-error #f "bad syntax" stx)])
     (with-syntax ([(form-name info struct-expr field+val ...) stx])
       (define ans (syntax->list #'(field+val ...)))
       ;; Check syntax:

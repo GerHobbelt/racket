@@ -778,7 +778,7 @@ collectsdir
 htmldir
 infodir
 docdir
-oldincludedir
+guibindir
 includedir
 localstatedir
 sharedstatedir
@@ -786,7 +786,7 @@ sysconfdir
 datadir
 datarootdir
 libexecdir
-guibindir
+sbindir
 bindir
 program_transform_name
 prefix
@@ -900,7 +900,7 @@ x_libraries=NONE
 # Use braces instead of parens because sh, perl, etc. also accept them.
 # (The list follows the same order as the GNU Coding Standards.)
 bindir='${exec_prefix}/bin'
-guibindir='${bindir}'
+sbindir='${exec_prefix}/sbin'
 libexecdir='${exec_prefix}/libexec'
 datarootdir='${prefix}/share'
 datadir='${datarootdir}'
@@ -908,7 +908,7 @@ sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
 includedir='${prefix}/include'
-oldincludedir='/usr/include'
+guibindir='${bindir}'
 docdir='${datarootdir}/doc/${PACKAGE}'
 infodir='${datarootdir}/info'
 htmldir='${docdir}'
@@ -1127,14 +1127,14 @@ do
   | --no-recurs | --no-recur | --no-recu | --no-rec | --no-re | --no-r)
     no_recursion=yes ;;
 
-  -oldincludedir | --oldincludedir | --oldincludedi | --oldincluded \
+  -guibindir | --guibindir | --guibindi | --guibind \
   | --oldinclude | --oldinclud | --oldinclu | --oldincl | --oldinc \
   | --oldin | --oldi | --old | --ol | --o)
-    ac_prev=oldincludedir ;;
-  -oldincludedir=* | --oldincludedir=* | --oldincludedi=* | --oldincluded=* \
+    ac_prev=guibindir ;;
+  -guibindir=* | --guibindir=* | --guibindi=* | --guibind=* \
   | --oldinclude=* | --oldinclud=* | --oldinclu=* | --oldincl=* | --oldinc=* \
   | --oldin=* | --oldi=* | --old=* | --ol=* | --o=*)
-    oldincludedir=$ac_optarg ;;
+    guibindir=$ac_optarg ;;
 
   -prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
     ac_prev=prefix ;;
@@ -1186,11 +1186,11 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
-  -guibindir | --guibindir | --guibindi | --guibind | --guibin | --sbi | --sb)
-    ac_prev=guibindir ;;
-  -guibindir=* | --guibindir=* | --guibindi=* | --guibind=* | --guibin=* \
+  -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
+    ac_prev=sbindir ;;
+  -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
   | --sbi=* | --sb=*)
-    guibindir=$ac_optarg ;;
+    sbindir=$ac_optarg ;;
 
   -sharedstatedir | --sharedstatedir | --sharedstatedi \
   | --sharedstated | --sharedstate | --sharedstat | --sharedsta \
@@ -1320,9 +1320,9 @@ if test -n "$ac_unrecognized_opts"; then
 fi
 
 # Check all directory arguments for consistency.
-for ac_var in	exec_prefix prefix bindir guibindir libexecdir datarootdir \
+for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
-		oldincludedir docdir infodir htmldir collectsdir appsdir psdir \
+		guibindir docdir infodir htmldir collectsdir appsdir psdir \
 		libdir appsdir mandir
 do
   eval ac_val=\$$ac_var
@@ -1472,10 +1472,10 @@ For better control, use the options below.
 
 Fine tuning of the installation directories:
   --bindir=DIR            user executables [EPREFIX/bin]
-  --guibindir=DIR         GUI programs [BINDIR]
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
+  --guibindir=DIR         GUI programs [BINDIR]
   --datarootdir=DIR       read-only arch.-independent data root [PREFIX/share]
   --datadir=DIR           read-only architecture-independent data [DATAROOTDIR]
   --appsdir=DIR           .desktop files [EPREFIX/share/applications]

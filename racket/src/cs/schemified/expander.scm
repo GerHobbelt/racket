@@ -30157,12 +30157,18 @@
                                                                                           nominal-phase+space-shift_0
                                                                                           sym_0)
                                                                                          r_1))))
-                                                                                (if (eqv?
-                                                                                     (required-phase+space
-                                                                                      nr_0)
-                                                                                     (intern-phase+space
-                                                                                      phase77_0
-                                                                                      space78_0))
+                                                                                (if (if (eqv?
+                                                                                         (required-phase+space
+                                                                                          nr_0)
+                                                                                         (intern-phase+space
+                                                                                          phase77_0
+                                                                                          space78_0))
+                                                                                      (bound-identifier=?$1
+                                                                                       id76_0
+                                                                                       (required-id
+                                                                                        nr_0)
+                                                                                       phase77_0)
+                                                                                      #f)
                                                                                   (raise-already-bound_0
                                                                                    defined?_0
                                                                                    r_1)
@@ -72690,7 +72696,7 @@
 (define 1/syntax-local-apply-transformer
   (|#%name|
    syntax-local-apply-transformer
-   (lambda (transformer_0 binding-id_0 context_0 intdef-ctx_0 . args_0)
+   (lambda (transformer_0 binding-id/insp_0 context_0 intdef-ctx_0 . args_0)
      (begin
        (if (procedure? transformer_0)
          (void)
@@ -72699,13 +72705,27 @@
           "procedure?"
           transformer_0))
        (begin
-         (if (let ((or-part_0 (identifier? binding-id_0)))
-               (if or-part_0 or-part_0 (eq? binding-id_0 #f)))
+         (if (let ((or-part_0 (eq? binding-id/insp_0 #f)))
+               (if or-part_0
+                 or-part_0
+                 (let ((or-part_1 (identifier? binding-id/insp_0)))
+                   (if or-part_1
+                     or-part_1
+                     (let ((or-part_2 (inspector? binding-id/insp_0)))
+                       (if or-part_2
+                         or-part_2
+                         (if (list? binding-id/insp_0)
+                           (if (= 2 (length binding-id/insp_0))
+                             (if (identifier? (car binding-id/insp_0))
+                               (inspector? (cadr binding-id/insp_0))
+                               #f)
+                             #f)
+                           #f)))))))
            (void)
            (raise-argument-error
             'syntax-local-apply-transformer
-            "(or/c identifier? #f)"
-            binding-id_0))
+            "(or/c identifier? inspector? (list/c internal-definition-context? inspector?) #f)"
+            binding-id/insp_0))
          (begin
            (if (let ((or-part_0 (list? context_0)))
                  (if or-part_0
@@ -72726,66 +72746,91 @@
                (void)
                (raise-argument-error
                 'syntax-local-apply-transformer
-                "(or/c internal-definition-context? #f)"
+                "(or/c #f internal-definition-context?)"
                 intdef-ctx_0))
-             (let ((ctx_0
-                    (get-current-expand-context.1
-                     #f
-                     'syntax-local-apply-transformer)))
-               (let ((local-ctx_0
-                      (make-local-expand-context.1
-                       context_0
-                       #t
-                       intdef-ctx_0
-                       #t
-                       unsafe-undefined
-                       #f
-                       #f
-                       #f
-                       ctx_0)))
-                 (let ((scoped-args_0
-                        (transform-syntax-vals
-                         (lambda (s_0)
-                           (let ((temp6_0
-                                  (flip-scopes
-                                   s_0
-                                   (expand-context/outer-current-introduction-scopes
-                                    ctx_0))))
-                             (add-intdef-scopes.1
-                              unsafe-undefined
-                              #f
-                              temp6_0
-                              intdef-ctx_0)))
-                         args_0)))
-                   (let ((scoped-binding-id_0
-                          (if binding-id_0
-                            (flip-scopes
-                             binding-id_0
-                             (expand-context/outer-current-introduction-scopes
-                              ctx_0))
-                            #f)))
-                     (let ((output-vals_0
-                            (with-continuation-mark*
-                             push-authentic
-                             current-expand-context
+             (let ((binding-id_0
+                    (let ((or-part_0
+                           (if (identifier? binding-id/insp_0)
+                             binding-id/insp_0
+                             #f)))
+                      (if or-part_0
+                        or-part_0
+                        (if (pair? binding-id/insp_0)
+                          (car binding-id/insp_0)
+                          #f)))))
+               (let ((or-part_0
+                      (if (inspector? binding-id/insp_0)
+                        binding-id/insp_0
+                        #f)))
+                 (let ((expander-insp_0
+                        (if or-part_0
+                          or-part_0
+                          (let ((or-part_1
+                                 (if (pair? binding-id/insp_0)
+                                   (cadr binding-id/insp_0)
+                                   #f)))
+                            (if or-part_1
+                              or-part_1
+                              (current-module-code-inspector))))))
+                   (let ((ctx_0
+                          (get-current-expand-context.1
+                           #f
+                           'syntax-local-apply-transformer)))
+                     (let ((local-ctx_0
+                            (make-local-expand-context.1
+                             context_0
+                             #t
+                             intdef-ctx_0
+                             #t
+                             unsafe-undefined
                              #f
-                             (apply-transformer
-                              'syntax-local-apply-transformer
-                              transformer_0
-                              scoped-binding-id_0
-                              scoped-args_0
-                              local-ctx_0))))
-                       (let ((result-vals_0
+                             #f
+                             #f
+                             ctx_0)))
+                       (let ((scoped-args_0
                               (transform-syntax-vals
                                (lambda (s_0)
-                                 (flip-scopes
-                                  s_0
-                                  (expand-context/outer-current-introduction-scopes
-                                   ctx_0)))
-                               output-vals_0)))
-                         (apply values result-vals_0))))))))))))))
+                                 (let ((temp6_0
+                                        (flip-scopes
+                                         s_0
+                                         (expand-context/outer-current-introduction-scopes
+                                          ctx_0))))
+                                   (add-intdef-scopes.1
+                                    unsafe-undefined
+                                    #f
+                                    temp6_0
+                                    intdef-ctx_0)))
+                               args_0)))
+                         (let ((scoped-binding-id_0
+                                (if binding-id_0
+                                  (flip-scopes
+                                   binding-id_0
+                                   (expand-context/outer-current-introduction-scopes
+                                    ctx_0))
+                                  #f)))
+                           (let ((output-vals_0
+                                  (with-continuation-mark*
+                                   push-authentic
+                                   current-expand-context
+                                   #f
+                                   (apply-transformer
+                                    'syntax-local-apply-transformer
+                                    transformer_0
+                                    scoped-binding-id_0
+                                    scoped-args_0
+                                    local-ctx_0
+                                    expander-insp_0))))
+                             (let ((result-vals_0
+                                    (transform-syntax-vals
+                                     (lambda (s_0)
+                                       (flip-scopes
+                                        s_0
+                                        (expand-context/outer-current-introduction-scopes
+                                         ctx_0)))
+                                     output-vals_0)))
+                               (apply values result-vals_0)))))))))))))))))
 (define apply-transformer
-  (lambda (who_0 transformer_0 binding-id_0 args_0 ctx_0)
+  (lambda (who_0 transformer_0 binding-id_0 args_0 ctx_0 expander-insp_0)
     (call-with-values
      (lambda ()
        (if binding-id_0
@@ -72829,7 +72874,8 @@
                        intro-scope_0
                        use-scopes_0
                        binding-id_0
-                       insp-of-t_0)))
+                       insp-of-t_0
+                       expander-insp_0)))
                  (let ((scope-res_0
                         (|#%name|
                          scope-res
@@ -72853,7 +72899,8 @@
            intro-scope_0
            use-scopes_0
            binding-id_0
-           insp-of-t_0)
+           insp-of-t_0
+           expander-insp_0)
     (let ((m-ctx_0
            (if (expand-context/outer? ctx_0)
              (let ((current-introduction-scopes16_0 (list intro-scope_0)))
@@ -72900,18 +72947,17 @@
                (with-continuation-mark*
                 authentic
                 current-module-code-inspector
-                (let ((b_0 (current-module-code-inspector)))
-                  (if (eq? insp-of-t_0 b_0)
-                    insp-of-t_0
-                    (if (not insp-of-t_0)
+                (if (eq? insp-of-t_0 expander-insp_0)
+                  insp-of-t_0
+                  (if (not insp-of-t_0)
+                    #f
+                    (if (not expander-insp_0)
                       #f
-                      (if (not b_0)
-                        #f
-                        (if (inspector-superior? insp-of-t_0 b_0)
-                          b_0
-                          (if (inspector-superior? b_0 insp-of-t_0)
-                            insp-of-t_0
-                            #f))))))
+                      (if (inspector-superior? insp-of-t_0 expander-insp_0)
+                        expander-insp_0
+                        (if (inspector-superior? expander-insp_0 insp-of-t_0)
+                          insp-of-t_0
+                          #f)))))
                 (call-with-continuation-barrier
                  (lambda ()
                    (call-with-values

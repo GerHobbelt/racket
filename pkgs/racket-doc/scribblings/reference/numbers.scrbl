@@ -878,13 +878,6 @@ produces @racket[#t].
 @history[#:added "8.16.0.4"]}
 
 
-This operation is equivalent to
-@racket[(not (zero? (bitwise-and n (arithmetic-shift 1 m))))],
-but it is faster and runs in constant time when @racket[n] is positive.
-
-@mz-examples[(bitwise-bit-set? 5 0) (bitwise-bit-set? 5 2) (bitwise-bit-set? -5 (expt 2 700))]}
-
-
 @defproc[(bitwise-bit-field [n exact-integer?]
                             [start exact-nonnegative-integer?]
                             [end (and/c exact-nonnegative-integer?
