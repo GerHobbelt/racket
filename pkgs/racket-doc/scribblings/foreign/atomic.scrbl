@@ -1,5 +1,7 @@
 #lang scribble/doc
-@(require "utils.rkt" (for-label ffi/unsafe/atomic))
+@(require "utils.rkt"
+          (for-label ffi/unsafe/atomic
+                     racket/future))
 
 @title{Atomic Execution}
 
@@ -28,8 +30,9 @@ it terminates and does not involve synchronization.
 @defproc[(end-atomic) void?]
 )]{
 
-Disables/re-enables context switches at the level of Racket threads,
-and also suspends/resumes delivery of break exceptions (independent of the
+Disables/re-enables concurrency with any Racket
+@tech[#:doc reference.scrbl]{coroutine threads} in the same
+place, and also suspends/resumes delivery of break exceptions (independent of the
 result of @racket[break-enabled]). Calls to @racket[start-atomic] and
 @racket[end-atomic] can be nested.
 
@@ -62,7 +65,13 @@ safely interrupted by a non-atomic exception construction.
 Unlike @racket[call-as-atomic], @racket[start-atomic] and
 @racket[end-atomic] can be called from any OS thread as supported by
 @racketmodname[ffi/unsafe/os-thread], although the calls have no
-effect in that case.
+effect outside of Racket threads. Using @racket[start-atomic] in a @tech[#:doc
+reference.scrbl]{future} that is not running in a Racket thread
+blocks the future until it is resumed by @racket[touch] in a Racket
+thread. Using @racket[start-atomic] in a tech[#:doc
+reference.scrbl]{parallel thread} synchronizes with all
+@tech[#:doc reference.scrbl]{coroutine threads} in the same
+@tech[#:doc reference.scrbl]{place}, but not other parallel threads or futures.
 
 See also the caveat that @elemref["atomic-unsafe"]{atomic mode is unsafe}.}
 
@@ -112,5 +121,86 @@ When used not in the dynamic extent of a call to
 
 @defproc[(in-atomic-mode?) boolean?]{
 
-Returns @racket[#t] when in @tech{atomic mode} (within the current
+Returns @racket[#t] when in @tech{atomic mode} or @tech{uninterruptible mode} (within the current
 @tech[#:doc reference.scrbl]{place}), @racket[#f] otherwise.}
+
+
+@deftogether[(
+@defproc[(start-uninterruptible) void?]
+@defproc[(end-uninterruptible) void?]
+)]{
+
+Like @racket[start-atomic] and @racket[end-atomic], but
+the continuation after @racket[start-uninterruptible] and
+before @racket[end-uninterruptible] may run concurrently with other Racket
+threads (both @tech[#:doc reference.scrbl]{coroutine threads}
+and @tech[#:doc reference.scrbl]{parallel threads}),
+but in @deftech{uninterruptible mode}: the continuation will reach
+@racket[end-uninterruptible] without interruption from other threads.
+Uninterruptable mode is unsafe, just like
+@elemref["atomic-unsafe"]{atomic mode is unsafe}.
+
+Unlike @racket[start-atomic],
+@racket[start-uninterruptible] in the @CS[] implementation does not block a future that is
+running concurrently with Racket threads, and it does not cause
+a parallel thread to synchronize with coroutine threads. At the same time,
+such a future or parallel thread must not perform any action that
+blocks the future or requires synchronization with coroutine threads;
+successful use of uninterruptible mode in a future
+or parallel thread thus requires knowledge of Racket's internals.
+
+As a special case, an @racket[equal?]-based mutable hash table (created
+by @racket[make-hash], for example) or a semaphore (created by
+@racket[make-semaphore]) can be used an in uninterruptible mode if it
+is used @emph{only} in uninterruptible mode, never concurrently; in
+the case of a semaphore, the semaphore's internal counter must be
+non-zero when waiting on the semaphore. Direct use of a semaphore in
+uninterrupted mode would not make sense, but the special case allows
+uninterrupted mode to use data structures that normally rely on
+semaphores for locking, as long as they are used consistently that
+way. See also @racket[make-uninterruptible-lock].
+
+Calls to @racket[start-uninterruptible] and
+@racket[end-uninterruptible] can be nested, and they can be mutually
+nested with calls to @racket[start-atomic] and @racket[end-atomic]
+in a coroutine thread. Since @racket[start-atomic] is blocking for futures
+and requires synchronization in a parallel thread, it cannot be used
+in uninterruptible mode in a future or parallel thread.
+
+@history[#:added "8.17.0.7"
+         #:changed "8.18.0.2" @elem{Constrain the use of uninterruptable mode in
+                                    futures and parallel threads.}]}
+
+
+@defproc[(call-as-uninterruptible [thunk (-> any)]) any]{
+
+Similar to @racket[call-as-atomic], but for
+@tech{uninterruptible mode}.
+
+@history[#:added "8.17.0.7"]}
+
+
+
+@deftogether[(
+@defproc[(make-uninterruptible-lock) any/c]
+@defproc[(uninterruptible-lock-acquire [lock any/c]) void?]
+@defproc[(uninterruptible-lock-release [lock any/c]) void?]
+)]{
+
+An @deftech{uninterruptible lock} provides low-level synchronization
+that cooperates with @tech{uninterruptible mode} across parallel
+threads and futures. In particular, since a hash table or semaphore
+can be used in uninterruptible mode but non-concurrently, an
+uninterruptable lock can be used to guard access to the hash table or
+semaphore.
+
+An uninterruptable lock does not cooperate with coroutine thread
+scheduling. The @racket[uninterruptible-lock-acquire] function enters
+uninterruptable mode immediately, before taking the lock or even
+waiting for it, and @racket[uninterruptible-lock-release] exits
+uninterruptable mode only after releasing the lock. An uninterruptable
+lock is therefore useful only to guard predictably short actions
+that are reasonably considered atomic from the perspective of Racket
+threads.
+
+@history[#:added "8.18.0.5"]}

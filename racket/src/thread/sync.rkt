@@ -181,7 +181,7 @@
                     (go)))
      ;; If we get here, the break wasn't triggered, and it must be currently ignored.
      ;; (If the break was triggered so that we don't get here, it's not ignored.)
-     (thread-remove-ignored-break-cell! (current-thread/in-atomic) local-break-cell)
+     (thread-remove-ignored-break-cell! (current-thread) local-break-cell)
      ;; In case old break cell was meanwhile enabled:
      (check-for-break)
      ;; In tail position:
@@ -231,8 +231,11 @@
        [(evt-impersonator? evt)
         (do-sync 'sync/timeout timeout (list evt))]
        [(and (eqv? timeout 0)
-             (semaphore? evt))
-        (if (semaphore-try-wait? evt)
+             (or (semaphore? evt)
+                 (semaphore-peek-evt? evt)))
+        (if (if (semaphore? evt)
+                (unsafe-semaphore-try-wait? evt #t)
+                (unsafe-semaphore-try-peek? evt))
             evt
             #f)]
        [(not timeout)
@@ -705,7 +708,7 @@
 ;; Install a callback to reschedule the current thread if an
 ;; asynchronous selection happens, and then deschedule the thread
 (define (suspend-syncing-thread s timeout-at)
-  ((atomically
+  ((atomically/no-barrier-exit
     (let retry ()
       (define nss (nested-syncings s s)) ; sets `syncing-wakeup` propagation
       (cond
@@ -713,9 +716,9 @@
             (for/or ([ns (in-list nss)])
               (syncing-selected ns)))
         ;; don't suspend after all
-        void]
+        future-barrier-exit]
        [else
-        (define t (current-thread/in-atomic))
+        (define t (current-thread/in-racket))
         (set-syncing-wakeup!
          s
          ;; In atomic mode
@@ -739,7 +742,7 @@
                               ;; In non-atomic mode and tail position:
                               (lambda ()
                                 ;; Continue from suspend or ignored break...
-                                ((atomically
+                                ((atomically/no-barrier-exit
                                   (unless (syncing-selected s)
                                     (syncing-retry! s))
                                   (retry))))))])))))
@@ -757,23 +760,24 @@
 (define/who (replace-evt evt next)
   (check who evt? evt)
   (check who procedure? next)
-  (define orig-evt
-    (replacing-evt
-     ;; called for each `sync`:
-     (lambda ()
-       (define s (make-syncing (evts->syncers who (list evt))))
-       (values
-        #f
-        ;; represents the instantited attempt to sync on `evt`:
-        (control-state-evt
-         (nested-sync-evt s next orig-evt)
-         values
-         ;; The interrupt and retry callbacks get discarded
-         ;; when a new event is returned (but the abandon
-         ;; callback is preserved)
-         (lambda () (syncing-interrupt! s))
-         (lambda () (syncing-abandon! s))
-         (lambda () (syncing-retry! s)))))))
+  (define orig-evt #f)
+  (set! orig-evt
+        (replacing-evt
+         ;; called for each `sync`:
+         (lambda ()
+           (define s (make-syncing (evts->syncers who (list evt))))
+           (values
+            #f
+            ;; represents the instantited attempt to sync on `evt`:
+            (control-state-evt
+             (nested-sync-evt s next orig-evt)
+             values
+             ;; The interrupt and retry callbacks get discarded
+             ;; when a new event is returned (but the abandon
+             ;; callback is preserved)
+             (lambda () (syncing-interrupt! s))
+             (lambda () (syncing-abandon! s))
+             (lambda () (syncing-retry! s)))))))
   orig-evt)
 
 (define (poll-nested-sync ns just-poll? fast-only? sched-info)

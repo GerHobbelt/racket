@@ -90,6 +90,12 @@
       (complete-or-expire go #f (if timeout? 0 10))]))
   go)
 
+(define (make-engine-thread-cell-state init-break-enabled-cell empty-config?)
+  init-break-enabled-cell)
+
+(define (set-engine-thread-cell-state! init-break-enabled-cell)
+  (void)) 
+
 (define (engine-block)
   (thread-suspend (current-thread)))
 
@@ -232,10 +238,14 @@
                   'unsafe-add-global-finalizer (lambda (v proc) (void))
                   'unsafe-root-continuation-prompt-tag unsafe-root-continuation-prompt-tag
                   'break-enabled-key break-enabled-key
-                  'engine-block engine-block))
+                  'engine-block engine-block
+                  'assert-push-lock-level! void
+                  'assert-pop-lock-level! void))
 (primitive-table '#%engine
                  (hash 
                   'make-engine make-engine
+                  'make-engine-thread-cell-state make-engine-thread-cell-state
+                  'set-engine-thread-cell-state! set-engine-thread-cell-state!
                   'engine-timeout engine-timeout
                   'engine-return (lambda args
                                    (error "engine-return: not ready"))
@@ -251,6 +261,8 @@
                   'will-executor? will-executor/notify?
                   'will-register will-register/notify
                   'will-try-execute will-try-execute/notify
+                  'unsafe-make-hasheq make-hasheq
+                  'unsafe-make-weak-hasheq make-weak-hasheq
                   'set-reachable-size-increments-callback! (lambda (proc) (void))
                   'set-custodian-memory-use-proc! (lambda (proc) (void))
                   'set-immediate-allocation-check-proc! (lambda (proc) (void))
@@ -284,14 +296,25 @@
                   'condition-broadcast (lambda args
                                          (error "condition-broadcast: not ready"))
                   'threaded? (lambda () #f)
-                  'make-mutex (lambda () (make-semaphore 1))
-                  'mutex-acquire (lambda (s) (semaphore-wait s))
-                  'mutex-release (lambda (s) (semaphore-post s))
+                  'make-mutex (lambda () (vector #f 0 (make-semaphore 1)))
+                  'mutex-acquire (lambda (s) (cond
+                                               [(eq? (vector-ref s 0) (current-thread))
+                                                (vector-set! s 1 (add1 (vector-ref s 1)))]
+                                               [else
+                                                (semaphore-wait (vector-ref s 2))
+                                                (vector-set! s 0 (current-thread))]))
+                  'mutex-release (lambda (s) (cond
+                                               [(eqv? (vector-ref s 1) 0)
+                                                (vector-set! s 0 #f)
+                                                (semaphore-post (vector-ref s 2))]
+                                               [else
+                                                (vector-set! s 1 (sub1 (vector-ref s 1)))]))
                   'call-as-asynchronous-callback (lambda (thunk) (thunk))
                   'post-as-asynchronous-callback (lambda (thunk) (thunk))
-                  'continuation-current-primitive (lambda (k) #f)
+                  'continuation-current-primitive (lambda (k excls incls) #f)
                   'prop:unsafe-authentic-override prop:unsafe-authentic-override
-                  'get-system-stats (lambda () (values 0))))
+                  'get-system-stats (lambda () (values 0))
+                  'internal-error error))
 
 ;; add dummy definitions that implement pthreads and conditions etc.
 ;; dummy definitions that error

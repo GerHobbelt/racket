@@ -599,42 +599,6 @@
        parameterization-key
        paramz_0
        (|#%app| thunk_0)))))
-(define-values
- (struct:break-paramz
-  make-break-paramz
-  break-paramz?
-  break-paramz-ref
-  break-paramz-set!)
- (make-struct-type 'break-parameterization #f 1 0 #f))
-(define current-break-parameterization
-  (lambda ()
-    (make-break-paramz (continuation-mark-set-first #f break-enabled-key))))
-(define call-with-break-parameterization
-  (lambda (paramz_0 thunk_0)
-    (begin
-      (if (break-paramz? paramz_0)
-        (void)
-        (raise-argument-error
-         'call-with-break-parameterization
-         "break-parameterization?"
-         0
-         paramz_0
-         thunk_0))
-      (if (if (procedure? thunk_0) (procedure-arity-includes? thunk_0 0) #f)
-        (void)
-        (raise-argument-error
-         'call-with-parameterization
-         "(-> any)"
-         1
-         paramz_0
-         thunk_0))
-      (begin0
-        (with-continuation-mark*
-         push-authentic
-         break-enabled-key
-         (|#%app| break-paramz-ref paramz_0 0)
-         (begin (check-for-break) (|#%app| thunk_0)))
-        (check-for-break)))))
 (define select-handler/no-breaks
   (lambda (e_0 bpz_0 l_0)
     (with-continuation-mark*
@@ -4070,147 +4034,16 @@
                       (for-loop_0 table_3 rest_0))))
                 table_2)))))
          (for-loop_0 table_1 l_0))))))
-(define start-atomic (lambda () (unsafe-start-atomic)))
-(define end-atomic (lambda () (unsafe-end-atomic)))
-(define start-breakable-atomic (lambda () (unsafe-start-breakable-atomic)))
-(define end-breakable-atomic (lambda () (unsafe-end-breakable-atomic)))
-(define cell.1$11 (unsafe-make-place-local #f))
-(define entered-err-string-handler
-  (lambda (s_0 n_0)
-    (call-as-nonatomic
-     (lambda () (|#%app| (error-value->string-handler) s_0 n_0)))))
-(define cell.2$5 (unsafe-make-place-local #f))
-(define cell.3$2 (unsafe-make-place-local #f))
+(define make-uninterruptible-lock
+  (lambda () (unsafe-make-uninterruptible-lock)))
+(define uninterruptible-lock-acquire
+  (lambda (lock_0) (unsafe-uninterruptible-lock-acquire lock_0)))
+(define uninterruptible-lock-release
+  (lambda (lock_0) (unsafe-uninterruptible-lock-release lock_0)))
+(define cell.1$1_1678 (unsafe-make-place-local #f))
+(define cell.2$9 (unsafe-make-place-local #f))
+(define cell.3$3 (unsafe-make-place-local #f))
 (define cell.4$2 (unsafe-make-place-local 0))
-(define exited-key (gensym 'as-exit))
-(define lock-tag (make-continuation-prompt-tag 'lock))
-(define call-as-atomic
-  (lambda (f_0)
-    (begin
-      (if (if (procedure? f_0) (procedure-arity-includes? f_0 0) #f)
-        (void)
-        (raise-type-error 'call-as-atomic "procedure (arity 0)" f_0))
-      (if (eq? (unsafe-place-local-ref cell.1$11) (current-thread))
-        (dynamic-wind
-         (lambda ()
-           (begin
-             (unsafe-start-breakable-atomic)
-             (unsafe-place-local-set!
-              cell.4$2
-              (add1 (unsafe-place-local-ref cell.4$2)))))
-         f_0
-         (lambda ()
-           (begin
-             (unsafe-place-local-set!
-              cell.4$2
-              (sub1 (unsafe-place-local-ref cell.4$2)))
-             (unsafe-end-breakable-atomic))))
-        (with-continuation-mark*
-         general
-         exited-key
-         #f
-         (call-with-continuation-prompt
-          (lambda ()
-            (dynamic-wind
-             (lambda ()
-               (begin
-                 (unsafe-start-breakable-atomic)
-                 (unsafe-place-local-set! cell.1$11 (current-thread))))
-             (lambda ()
-               (begin
-                 (unsafe-place-local-set! cell.2$5 (current-parameterization))
-                 (unsafe-place-local-set!
-                  cell.3$2
-                  (current-break-parameterization))
-                 (with-continuation-mark*
-                  authentic
-                  parameterization-key
-                  (extend-parameterization
-                   (continuation-mark-set-first #f parameterization-key)
-                   error-value->string-handler
-                   entered-err-string-handler)
-                  (with-continuation-mark*
-                   authentic
-                   break-enabled-key
-                   (make-thread-cell #f)
-                   (begin
-                     (check-for-break)
-                     (call-with-exception-handler
-                      (lambda (exn_0)
-                        (if (continuation-mark-set-first #f exited-key)
-                          exn_0
-                          (abort-current-continuation
-                           lock-tag
-                           (lambda () (raise exn_0)))))
-                      f_0))))))
-             (lambda ()
-               (begin
-                 (unsafe-place-local-set! cell.1$11 #f)
-                 (unsafe-place-local-set! cell.2$5 #f)
-                 (unsafe-place-local-set! cell.3$2 #f)
-                 (unsafe-end-breakable-atomic)))))
-          lock-tag
-          (lambda (t_0) (|#%app| t_0))))))))
-(define call-as-nonatomic
-  (lambda (f_0)
-    (begin
-      (if (if (procedure? f_0) (procedure-arity-includes? f_0 0) #f)
-        (void)
-        (raise-type-error 'call-as-nonatomic "procedure (arity 0)" f_0))
-      (if (eq? (unsafe-place-local-ref cell.1$11) (current-thread))
-        (void)
-        (error 'call-as-nonatomic "not in atomic area for ~e" f_0))
-      (let ((paramz_0 (unsafe-place-local-ref cell.2$5)))
-        (let ((break-paramz_0 (unsafe-place-local-ref cell.3$2)))
-          (let ((extra-depth_0 (unsafe-place-local-ref cell.4$2)))
-            (with-continuation-mark*
-             general
-             exited-key
-             #t
-             (call-with-parameterization
-              paramz_0
-              (lambda ()
-                (call-with-break-parameterization
-                 break-paramz_0
-                 (lambda ()
-                   (dynamic-wind
-                    (lambda ()
-                      (begin
-                        (unsafe-place-local-set! cell.1$11 #f)
-                        (unsafe-place-local-set! cell.4$2 0)
-                        (unsafe-end-breakable-atomic)
-                        (letrec*
-                         ((loop_0
-                           (|#%name|
-                            loop
-                            (lambda (i_0)
-                              (if (zero? i_0)
-                                (void)
-                                (begin
-                                  (unsafe-end-breakable-atomic)
-                                  (loop_0 (sub1 i_0))))))))
-                         (loop_0 extra-depth_0))))
-                    f_0
-                    (lambda ()
-                      (begin
-                        (unsafe-start-breakable-atomic)
-                        (unsafe-place-local-set! cell.2$5 paramz_0)
-                        (unsafe-place-local-set! cell.3$2 break-paramz_0)
-                        (letrec*
-                         ((loop_0
-                           (|#%name|
-                            loop
-                            (lambda (i_0)
-                              (if (zero? i_0)
-                                (void)
-                                (begin
-                                  (unsafe-start-breakable-atomic)
-                                  (loop_0 (sub1 i_0))))))))
-                         (loop_0 extra-depth_0))
-                        (unsafe-place-local-set! cell.4$2 extra-depth_0)
-                        (unsafe-place-local-set!
-                         cell.1$11
-                         (current-thread))))))))))))))))
 (define check-fxvector
   (lambda (v_0)
     (if (fxvector? v_0)
@@ -4248,9 +4081,9 @@
     #t
     #f))
 (define cell.1$10 (unsafe-make-place-local #f))
-(define cell.2$4 (unsafe-make-place-local (make-hasheq)))
+(define cell.2$8 (unsafe-make-place-local (make-hasheq)))
 (define performance-place-init!
-  (lambda () (unsafe-place-local-set! cell.2$4 (make-hasheq))))
+  (lambda () (unsafe-place-local-set! cell.2$8 (make-hasheq))))
 (define finish_2457
   (make-struct-type-install-properties
    '(region)
@@ -4726,7 +4559,7 @@
                                              accum_0
                                              (cdr path_0)))))))))))
                              (loop_0
-                              (unsafe-place-local-ref cell.2$4)
+                              (unsafe-place-local-ref cell.2$8)
                               (region-path r_0)))
                             (if (unsafe-place-local-ref cell.1$10)
                               (begin
@@ -4940,7 +4773,7 @@
                               memory-len_0
                               count-len_0
                               (hash-iterate-first accums_0)))))))
-                       (loop_0 (unsafe-place-local-ref cell.2$4) 6 5 2 4 5 2)))
+                       (loop_0 (unsafe-place-local-ref cell.2$8) 6 5 2 4 5 2)))
                     (lambda (label-max-len_0
                              value-max-len_0
                              value-gc-max-len_0
@@ -5173,7 +5006,7 @@
                                     (void))))))))
                          (loop_0
                           #f
-                          (unsafe-place-local-ref cell.2$4)
+                          (unsafe-place-local-ref cell.2$8)
                           ""
                           #t)))))))))))
          (void)))
@@ -6493,16 +6326,21 @@
             (if enclosing_0 (1/module-path-index-resolve enclosing_0) #f)))
        (build-module-name.1 unsafe-undefined name_0 temp21_0))))))
 (define cell.1$9 (unsafe-make-place-local (make-weak-hash)))
+(define cell.2$7 (unsafe-make-place-local (unsafe-make-uninterruptible-lock)))
 (define generic-module-name '|expanded module|)
 (define module-path-place-init!
-  (lambda () (unsafe-place-local-set! cell.1$9 (make-weak-hash))))
+  (lambda ()
+    (begin
+      (unsafe-place-local-set! cell.1$9 (make-weak-hash))
+      (unsafe-place-local-set! cell.2$7 (unsafe-make-uninterruptible-lock)))))
 (define make-generic-self-module-path-index
   (lambda (self_0)
     (let ((r_0
            (resolved-module-path-to-generic-resolved-module-path
             (module-path-index-resolved self_0))))
       (begin
-        (unsafe-start-atomic)
+        (let ((lock_0 (unsafe-place-local-ref cell.2$7)))
+          (unsafe-uninterruptible-lock-acquire lock_0))
         (begin0
           (let ((or-part_0
                  (let ((e_0
@@ -6517,7 +6355,8 @@
                    r_0
                    (make-ephemeron r_0 mpi_0))
                   mpi_0))))
-          (unsafe-end-atomic))))))
+          (let ((lock_0 (unsafe-place-local-ref cell.2$7)))
+            (unsafe-uninterruptible-lock-release lock_0)))))))
 (define resolved-module-path-to-generic-resolved-module-path
   (lambda (r_0)
     (let ((name_0 (1/resolved-module-path-name r_0)))
@@ -8407,19 +8246,25 @@
 (define binding-free=id
   (lambda (b_0) (if (full-binding? b_0) (full-binding-free=id b_0) #f)))
 (define cell.1$7 (unsafe-make-place-local (make-weak-hash)))
+(define cell.2$6 (unsafe-make-place-local (unsafe-make-uninterruptible-lock)))
 (define phase+space-place-init!
-  (lambda () (unsafe-place-local-set! cell.1$7 (make-weak-hash))))
+  (lambda ()
+    (begin
+      (unsafe-place-local-set! cell.1$7 (make-weak-hash))
+      (unsafe-place-local-set! cell.2$6 (unsafe-make-uninterruptible-lock)))))
 (define intern
   (lambda (new-key_0)
     (begin
-      (unsafe-start-atomic)
+      (let ((lock_0 (unsafe-place-local-ref cell.2$6)))
+        (unsafe-uninterruptible-lock-acquire lock_0))
       (let ((old-key_0
              (hash-ref-key (unsafe-place-local-ref cell.1$7) new-key_0 #f)))
         (begin
           (if old-key_0
             (void)
             (hash-set! (unsafe-place-local-ref cell.1$7) new-key_0 #t))
-          (unsafe-end-atomic)
+          (let ((lock_0 (unsafe-place-local-ref cell.2$6)))
+            (unsafe-uninterruptible-lock-release lock_0))
           (if old-key_0 old-key_0 new-key_0))))))
 (define space+
   (lambda (s_0 s-level_0) (if (eq? s-level_0 kw2450) s_0 s-level_0)))
@@ -10609,13 +10454,13 @@
            (weak-box-value (unsafe-unbox* (unsafe-place-local-ref cell.1$6)))))
       (begin
         (if c_0 (hash-remove! c_0 sym_0) (void))
-        (unsafe-set-box*! (unsafe-place-local-ref cell.2$3) #f))))
+        (unsafe-set-box*! (unsafe-place-local-ref cell.2$5) #f))))
    (()
     (let ((c_0
            (weak-box-value (unsafe-unbox* (unsafe-place-local-ref cell.1$6)))))
       (begin
         (if c_0 (hash-clear! c_0) (void))
-        (unsafe-set-box*! (unsafe-place-local-ref cell.2$3) #f))))))
+        (unsafe-set-box*! (unsafe-place-local-ref cell.2$5) #f))))))
 (define finish_2822
   (make-struct-type-install-properties
    '(entry)
@@ -10675,8 +10520,8 @@
             (resolve-cache-set! sym_0 phase_0 scs_0 smss_0 b_0))
           (hash-set! c_0 sym_0 (entry1.1 scs_0 smss_0 phase_0 b_0)))))))
 (define SHIFTED-CACHE-SIZE 16)
-(define cell.2$3 (unsafe-make-place-local (box #f)))
-(define cell.3$1 (unsafe-make-place-local 0))
+(define cell.2$5 (unsafe-make-place-local (box #f)))
+(define cell.3$2 (unsafe-make-place-local 0))
 (define finish_2410
   (make-struct-type-install-properties
    '(shifted-entry)
@@ -10713,14 +10558,14 @@
   (|#%name| shifted-entry-binding (record-accessor struct:shifted-entry 2)))
 (define shifted-cache-vector
   (lambda ()
-    (let ((wb_0 (unsafe-unbox* (unsafe-place-local-ref cell.2$3))))
+    (let ((wb_0 (unsafe-unbox* (unsafe-place-local-ref cell.2$5))))
       (let ((c1_0 (if wb_0 (weak-box-value wb_0) #f)))
         (if c1_0
           c1_0
           (let ((vec_0 (make-vector 16 #f)))
             (begin
               (unsafe-set-box*!
-               (unsafe-place-local-ref cell.2$3)
+               (unsafe-place-local-ref cell.2$5)
                (make-weak-box vec_0))
               vec_0)))))))
 (define resolve+shift-cache-get
@@ -10756,10 +10601,10 @@
 (define resolve+shift-cache-set!
   (lambda (s_0 phase_0 b_0)
     (let ((vec_0 (shifted-cache-vector)))
-      (let ((p_0 (unsafe-place-local-ref cell.3$1)))
+      (let ((p_0 (unsafe-place-local-ref cell.3$2)))
         (begin
           (unsafe-vector*-set! vec_0 p_0 (shifted-entry2.1 s_0 phase_0 b_0))
-          (unsafe-place-local-set! cell.3$1 (fxand (fx+ 1 p_0) 15)))))))
+          (unsafe-place-local-set! cell.3$2 (fxand (fx+ 1 p_0) 15)))))))
 (define NUM-CACHE-SLOTS 8)
 (define make-cached-sets (lambda () (make-weak-box (make-vector 8 #f))))
 (define cell.4$1 (unsafe-make-place-local (make-cached-sets)))
@@ -11423,14 +11268,13 @@
          0
          s
          'from))))))
-(define cell.1$5 (unsafe-make-place-local 0))
+(define cell.1$5 (unsafe-make-place-local (box 0)))
 (define new-scope-id!
   (lambda ()
-    (begin
-      (unsafe-place-local-set!
-       cell.1$5
-       (add1 (unsafe-place-local-ref cell.1$5)))
-      (unsafe-place-local-ref cell.1$5))))
+    (let ((c_0 (unsafe-unbox* (unsafe-place-local-ref cell.1$5))))
+      (if (unsafe-box*-cas! (unsafe-place-local-ref cell.1$5) c_0 (add1 c_0))
+        (add1 c_0)
+        (new-scope-id!)))))
 (define new-deserialize-scope-id! (lambda () (- (new-scope-id!))))
 (define make-representative-scope-id
   (lambda (scope-id_0 phase_0)
@@ -11444,37 +11288,58 @@
 (define top-level-common-scope (scope1.1 0 'module empty-binding-table))
 (define new-scope
   (lambda (kind_0) (scope1.1 (new-scope-id!) kind_0 empty-binding-table)))
-(define cell.2$2 (unsafe-make-place-local (make-ephemeron-hasheq)))
+(define cell.2$4 (unsafe-make-place-local (make-ephemeron-hasheq)))
+(define cell.3$1 (unsafe-make-place-local (unsafe-make-uninterruptible-lock)))
 (define interned-scope-symbols
   (lambda ()
-    (call-as-atomic
-     (lambda () (hash-keys (unsafe-place-local-ref cell.2$2))))))
+    (begin
+      (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+        (unsafe-uninterruptible-lock-acquire lock_0))
+      (let ((keys_0 (hash-keys (unsafe-place-local-ref cell.2$4))))
+        (begin
+          (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+            (unsafe-uninterruptible-lock-release lock_0))
+          keys_0)))))
 (define interned-scopes
   (lambda ()
-    (call-as-atomic
-     (lambda ()
-       (let ((table_0 hash2610))
-         (let ((table_1 table_0))
-           (let ((ht_0 (unsafe-place-local-ref cell.2$2)))
-             (letrec*
-              ((for-loop_0
-                (|#%name|
-                 for-loop
-                 (lambda (table_2 i_0)
-                   (if i_0
-                     (let ((s_0 (hash-iterate-value ht_0 i_0)))
-                       (let ((table_3
-                              (let ((table_3
-                                     (call-with-values
-                                      (lambda () (values s_0 #t))
-                                      (lambda (key_0 val_0)
-                                        (hash-set table_2 key_0 val_0)))))
-                                (values table_3))))
-                         (for-loop_0 table_3 (hash-iterate-next ht_0 i_0))))
-                     table_2)))))
-              (for-loop_0 table_1 (hash-iterate-first ht_0))))))))))
+    (begin
+      (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+        (unsafe-uninterruptible-lock-acquire lock_0))
+      (let ((table_0 hash2610))
+        (let ((scs_0
+               (let ((table_1 table_0))
+                 (let ((ht_0 (unsafe-place-local-ref cell.2$4)))
+                   (letrec*
+                    ((for-loop_0
+                      (|#%name|
+                       for-loop
+                       (lambda (table_2 i_0)
+                         (if i_0
+                           (let ((s_0 (hash-iterate-value ht_0 i_0)))
+                             (let ((table_3
+                                    (let ((table_3
+                                           (call-with-values
+                                            (lambda () (values s_0 #t))
+                                            (lambda (key_0 val_0)
+                                              (hash-set
+                                               table_2
+                                               key_0
+                                               val_0)))))
+                                      (values table_3))))
+                               (for-loop_0
+                                table_3
+                                (hash-iterate-next ht_0 i_0))))
+                           table_2)))))
+                    (for-loop_0 table_1 (hash-iterate-first ht_0)))))))
+          (begin
+            (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+              (unsafe-uninterruptible-lock-release lock_0))
+            scs_0))))))
 (define scope-place-init!
-  (lambda () (unsafe-place-local-set! cell.2$2 (make-ephemeron-hasheq))))
+  (lambda ()
+    (begin
+      (unsafe-place-local-set! cell.2$4 (make-ephemeron-hasheq))
+      (unsafe-place-local-set! cell.3$1 (unsafe-make-uninterruptible-lock)))))
 (define make-interned-scope
   (lambda (sym_0)
     (let ((make_0
@@ -11486,16 +11351,31 @@
                'interned
                empty-binding-table
                sym_0)))))
-      (call-as-atomic
-       (lambda ()
-         (let ((or-part_0
-                (hash-ref! (unsafe-place-local-ref cell.2$2) sym_0 #f)))
-           (if or-part_0
-             or-part_0
-             (let ((new_0 (make_0)))
-               (begin
-                 (hash-set! (unsafe-place-local-ref cell.2$2) sym_0 new_0)
-                 new_0)))))))))
+      (let ((c1_0 (hash-ref (unsafe-place-local-ref cell.2$4) sym_0 #f)))
+        (if c1_0
+          c1_0
+          (let ((new_0 (make_0)))
+            (begin
+              (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+                (unsafe-uninterruptible-lock-acquire lock_0))
+              (let ((s_0
+                     (let ((or-part_0
+                            (hash-ref
+                             (unsafe-place-local-ref cell.2$4)
+                             sym_0
+                             #f)))
+                       (if or-part_0
+                         or-part_0
+                         (begin
+                           (hash-set!
+                            (unsafe-place-local-ref cell.2$4)
+                            sym_0
+                            new_0)
+                           new_0)))))
+                (begin
+                  (let ((lock_0 (unsafe-place-local-ref cell.3$1)))
+                    (unsafe-uninterruptible-lock-release lock_0))
+                  s_0)))))))))
 (define syntax-has-interned-scope?
   (lambda (s_0)
     (let ((ht_0 (syntax-scopes s_0)))
@@ -13187,7 +13067,7 @@
           (|#%name|
            fallback-loop
            (lambda (smss_0)
-             (let ((c1_0
+             (let ((c2_0
                     (if (not exactly?25_0)
                       (if (not get-scopes?26_0)
                         (resolve-cache-get
@@ -13197,12 +13077,12 @@
                          (fallback-first smss_0))
                         #f)
                       #f)))
-               (if c1_0
-                 (if (eq? c1_0 kw2450)
+               (if c2_0
+                 (if (eq? c2_0 kw2450)
                    (if (fallback? smss_0)
                      (fallback-loop_0 (fallback-rest smss_0))
                      #f)
-                   c1_0)
+                   c2_0)
                  (let ((scopes_0
                         (scope-set-at-fallback
                          s32_0
@@ -15533,7 +15413,11 @@
                         (sync/timeout
                          0
                          app_0
-                         (let ((or-part_1 (weak-box-value (cdr v_0))))
+                         (let ((or-part_1
+                                (let ((t_0 (weak-box-value (cdr v_0))))
+                                  (if (not (eq? (current-thread) t_0))
+                                    t_0
+                                    #f))))
                            (if or-part_1 or-part_1 never-evt))))))
                 (let ((sema_0 (make-semaphore)))
                   (let ((lock_0
@@ -19316,7 +19200,7 @@
                   (lambda (s_0) (error "bad syntax:" s_0)))))
             (lambda (t_0) v_0))))))))
 (define 1/make-set!-transformer
-  (let ((finish895
+  (let ((finish905
          (make-struct-type-install-properties
           '(set!-transformer)
           1
@@ -19336,7 +19220,7 @@
             #f
             #f
             '(1 . 0))))
-      (let ((effect896 (finish895 struct:set!-transformer_0)))
+      (let ((effect906 (finish905 struct:set!-transformer_0)))
         (let ((set!-transformer1_0
                (|#%name|
                 set!-transformer
@@ -24148,7 +24032,7 @@
   (lambda (s_0)
     (let ((built-in-s_0 (string->symbol (format ".~s" s_0))))
       (begin (hash-set! built-in-symbols built-in-s_0 #t) built-in-s_0))))
-(define effect_2328
+(define effect_2612
   (begin
     (void
      (begin
@@ -24204,6 +24088,16 @@
              call-with-module-prompt
              make-pthread-parameter
              engine-block
+             make-mutex
+             make-condition
+             mutex-acquire
+             mutex-release
+             condition-wait
+             condition-signal
+             assert-push-lock-level!
+             assert-pop-lock-level!
+             get-thread-id
+             threaded?
              make-record-type-descriptor
              make-record-type-descriptor*
              make-record-constructor-descriptor
@@ -43961,12 +43855,12 @@
 (define core-module-name (1/make-resolved-module-path '|#%core|))
 (define core-mpi (module-path-index-join* ''|#%core| #f))
 (define cell.1$4 (unsafe-make-place-local (make-hasheq)))
-(define cell.2$1 (unsafe-make-place-local (make-hasheq)))
+(define cell.2$3 (unsafe-make-place-local (make-hasheq)))
 (define core-place-init!
   (lambda ()
     (begin
       (unsafe-place-local-set! cell.1$4 (make-hasheq))
-      (unsafe-place-local-set! cell.2$1 (make-hasheq)))))
+      (unsafe-place-local-set! cell.2$3 (make-hasheq)))))
 (define core-id
   (lambda (sym_0 phase_0)
     (if (eqv? phase_0 0)
@@ -43979,7 +43873,7 @@
               s_0))))
       (if (eq? phase_0 1)
         (let ((or-part_0
-               (hash-ref (unsafe-place-local-ref cell.2$1) sym_0 #f)))
+               (hash-ref (unsafe-place-local-ref cell.2$3) sym_0 #f)))
           (if or-part_0
             or-part_0
             (let ((s_0
@@ -43987,7 +43881,7 @@
                     (syntax-shift-phase-level$1 core-stx 1)
                     sym_0)))
               (begin
-                (hash-set! (unsafe-place-local-ref cell.2$1) sym_0 s_0)
+                (hash-set! (unsafe-place-local-ref cell.2$3) sym_0 s_0)
                 s_0))))
         (datum->syntax$1
          (syntax-shift-phase-level$1 core-stx phase_0)
@@ -59993,65 +59887,74 @@
       #f)))
 (define make-cache (lambda () (if use-shadow-directory? (make-weak-hash) #f)))
 (define cell.1$2 (unsafe-make-place-local (make-cache)))
+(define cell.2$2 (unsafe-make-place-local (unsafe-make-uninterruptible-lock)))
 (define shadow-directory-place-init!
   (lambda () (unsafe-place-local-set! cell.1$2 (make-cache))))
 (define lookup-shadow-directory
   (lambda (orig_0)
-    (let ((sd_0
-           (call-as-atomic
-            (lambda ()
-              (hash-ref (unsafe-place-local-ref cell.1$2) orig_0 #f)))))
-      (if sd_0
-        (if (sync/timeout 0 (shadow-directory-evt sd_0))
-          (begin
-            (call-as-atomic
-             (lambda ()
-               (hash-remove! (unsafe-place-local-ref cell.1$2) orig_0)))
-            (lookup-shadow-directory orig_0))
-          sd_0)
-        (let ((evt_0 (filesystem-change-evt orig_0 (lambda () #f))))
-          (if evt_0
-            (let ((table_0 hash2725))
-              (let ((table_1
-                     (let ((table_1 table_0))
-                       (let ((lst_0 (directory-list orig_0)))
-                         (letrec*
-                          ((for-loop_0
-                            (|#%name|
-                             for-loop
-                             (lambda (table_2 lst_1)
-                               (if (pair? lst_1)
-                                 (let ((p_0 (unsafe-car lst_1)))
-                                   (let ((rest_0 (unsafe-cdr lst_1)))
-                                     (let ((table_3
-                                            (if (directory-exists?
-                                                 (build-path orig_0 p_0))
-                                              (let ((table_3
-                                                     (call-with-values
-                                                      (lambda ()
-                                                        (values
-                                                         (normal-case-path p_0)
-                                                         #t))
-                                                      (lambda (key_0 val_0)
-                                                        (hash-set
-                                                         table_2
-                                                         key_0
-                                                         val_0)))))
-                                                (values table_3))
-                                              table_2)))
-                                       (for-loop_0 table_3 rest_0))))
-                                 table_2)))))
-                          (for-loop_0 table_1 lst_0))))))
-                (let ((sd_1 (shadow-directory1.1 evt_0 table_1)))
-                  (begin
-                    (call-as-atomic
-                     (lambda ()
-                       (hash-set!
-                        (unsafe-place-local-ref cell.1$2)
-                        orig_0
-                        sd_1)))
-                    sd_1))))
-            #f))))))
+    (begin
+      (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+        (unsafe-uninterruptible-lock-acquire lock_0))
+      (let ((sd_0 (hash-ref (unsafe-place-local-ref cell.1$2) orig_0 #f)))
+        (begin
+          (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+            (unsafe-uninterruptible-lock-release lock_0))
+          (if sd_0
+            (if (sync/timeout 0 (shadow-directory-evt sd_0))
+              (begin
+                (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+                  (unsafe-uninterruptible-lock-acquire lock_0))
+                (hash-remove! (unsafe-place-local-ref cell.1$2) orig_0)
+                (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+                  (unsafe-uninterruptible-lock-release lock_0))
+                (lookup-shadow-directory orig_0))
+              sd_0)
+            (let ((evt_0 (filesystem-change-evt orig_0 (lambda () #f))))
+              (if evt_0
+                (let ((table_0 hash2725))
+                  (let ((table_1
+                         (let ((table_1 table_0))
+                           (let ((lst_0 (directory-list orig_0)))
+                             (letrec*
+                              ((for-loop_0
+                                (|#%name|
+                                 for-loop
+                                 (lambda (table_2 lst_1)
+                                   (if (pair? lst_1)
+                                     (let ((p_0 (unsafe-car lst_1)))
+                                       (let ((rest_0 (unsafe-cdr lst_1)))
+                                         (let ((table_3
+                                                (if (directory-exists?
+                                                     (build-path orig_0 p_0))
+                                                  (let ((table_3
+                                                         (call-with-values
+                                                          (lambda ()
+                                                            (values
+                                                             (normal-case-path
+                                                              p_0)
+                                                             #t))
+                                                          (lambda (key_0 val_0)
+                                                            (hash-set
+                                                             table_2
+                                                             key_0
+                                                             val_0)))))
+                                                    (values table_3))
+                                                  table_2)))
+                                           (for-loop_0 table_3 rest_0))))
+                                     table_2)))))
+                              (for-loop_0 table_1 lst_0))))))
+                    (let ((sd_1 (shadow-directory1.1 evt_0 table_1)))
+                      (begin
+                        (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+                          (unsafe-uninterruptible-lock-acquire lock_0))
+                        (hash-set!
+                         (unsafe-place-local-ref cell.1$2)
+                         orig_0
+                         sd_1)
+                        (let ((lock_0 (unsafe-place-local-ref cell.2$2)))
+                          (unsafe-uninterruptible-lock-release lock_0))
+                        sd_1))))
+                #f))))))))
 (define directory-exists?/shadow-filesystem
   (lambda (p_0 orig_0 subpath_0)
     (if (not (unsafe-place-local-ref cell.1$2))
@@ -60291,13 +60194,19 @@
       ((config-table2_0)
        (find-library-collection-links_0 config-table2_0 unsafe-undefined))))))
 (define cell.1$1 (unsafe-make-place-local (make-weak-hash)))
+(define cell.2$1 (unsafe-make-place-local (unsafe-make-uninterruptible-lock)))
 (define collection-place-init!
-  (lambda () (unsafe-place-local-set! cell.1$1 (make-weak-hash))))
+  (lambda ()
+    (begin
+      (unsafe-place-local-set! cell.1$1 (make-weak-hash))
+      (unsafe-place-local-set! cell.2$1 (unsafe-make-uninterruptible-lock)))))
 (define stamp-prompt-tag (make-continuation-prompt-tag 'stamp))
 (define file->stamp
   (lambda (path_0 old-stamp_0)
     (if (if old-stamp_0
-          (if (cdr old-stamp_0) (not (sync/timeout 0 (cdr old-stamp_0))) #f)
+          (if (cdr old-stamp_0)
+            (not (filesystem-change-evt-ready? (cdr old-stamp_0)))
+            #f)
           #f)
       old-stamp_0
       (call-with-continuation-prompt
@@ -60392,12 +60301,15 @@
                            (void)))
                        (void))
                      (if ts_0
-                       (call-as-atomic
-                        (lambda ()
-                          (hash-set!
-                           (unsafe-place-local-ref cell.1$1)
-                           links-path_0
-                           (cons ts_0 hash2610))))
+                       (begin
+                         (let ((lock_0 (unsafe-place-local-ref cell.2$1)))
+                           (unsafe-uninterruptible-lock-acquire lock_0))
+                         (hash-set!
+                          (unsafe-place-local-ref cell.1$1)
+                          links-path_0
+                          (cons ts_0 hash2610))
+                         (let ((lock_0 (unsafe-place-local-ref cell.2$1)))
+                           (unsafe-uninterruptible-lock-release lock_0)))
                        (void))
                      (if (exn:fail? exn_0)
                        (|#%app| esc_0 (make-hasheq))
@@ -60405,154 +60317,178 @@
          (call-with-exception-handler
           (make-handler_0 #f)
           (lambda ()
-            (let ((links-stamp+cache_0
-                   (call-as-atomic
-                    (lambda ()
-                      (hash-ref
-                       (unsafe-place-local-ref cell.1$1)
-                       links-path_0
-                       nhash2607)))))
-              (let ((a-links-stamp_0 (car links-stamp+cache_0)))
-                (let ((ts_0 (file->stamp links-path_0 a-links-stamp_0)))
-                  (if (equal? ts_0 a-links-stamp_0)
-                    (cdr links-stamp+cache_0)
-                    (call-with-exception-handler
-                     (make-handler_0 ts_0)
-                     (lambda ()
-                       (call-with-default-reading-parameterization
-                        (lambda ()
-                          (let ((v_0
-                                 (if (no-file-stamp? ts_0)
-                                   null
-                                   (let ((temp18_0
-                                          (lambda (p_0)
-                                            (begin0
-                                              (1/read p_0)
-                                              (if (eof-object? (1/read p_0))
-                                                (void)
-                                                (error
-                                                 "expected a single S-expression"))))))
-                                     (call-with-input-file*.1
-                                      'binary
-                                      links-path_0
-                                      temp18_0)))))
-                            (begin
-                              (if (if (list? v_0)
-                                    (andmap_2814
-                                     (lambda (p_0)
-                                       (if (list? p_0)
-                                         (if (let ((or-part_0
-                                                    (= 2 (length p_0))))
-                                               (if or-part_0
-                                                 or-part_0
-                                                 (= 3 (length p_0))))
+            (begin
+              (let ((lock_0 (unsafe-place-local-ref cell.2$1)))
+                (unsafe-uninterruptible-lock-acquire lock_0))
+              (let ((links-stamp+cache_0
+                     (hash-ref
+                      (unsafe-place-local-ref cell.1$1)
+                      links-path_0
+                      nhash2607)))
+                (begin
+                  (let ((lock_0 (unsafe-place-local-ref cell.2$1)))
+                    (unsafe-uninterruptible-lock-release lock_0))
+                  (let ((a-links-stamp_0 (car links-stamp+cache_0)))
+                    (let ((ts_0 (file->stamp links-path_0 a-links-stamp_0)))
+                      (if (equal? ts_0 a-links-stamp_0)
+                        (cdr links-stamp+cache_0)
+                        (call-with-exception-handler
+                         (make-handler_0 ts_0)
+                         (lambda ()
+                           (call-with-default-reading-parameterization
+                            (lambda ()
+                              (let ((v_0
+                                     (if (no-file-stamp? ts_0)
+                                       null
+                                       (let ((temp18_0
+                                              (lambda (p_0)
+                                                (begin0
+                                                  (1/read p_0)
+                                                  (if (eof-object?
+                                                       (1/read p_0))
+                                                    (void)
+                                                    (error
+                                                     "expected a single S-expression"))))))
+                                         (call-with-input-file*.1
+                                          'binary
+                                          links-path_0
+                                          temp18_0)))))
+                                (begin
+                                  (if (if (list? v_0)
+                                        (andmap_2814
+                                         (lambda (p_0)
+                                           (if (list? p_0)
+                                             (if (let ((or-part_0
+                                                        (= 2 (length p_0))))
+                                                   (if or-part_0
+                                                     or-part_0
+                                                     (= 3 (length p_0))))
+                                               (if (let ((or-part_0
+                                                          (string? (car p_0))))
+                                                     (if or-part_0
+                                                       or-part_0
+                                                       (let ((or-part_1
+                                                              (eq?
+                                                               'root
+                                                               (car p_0))))
+                                                         (if or-part_1
+                                                           or-part_1
+                                                           (eq?
+                                                            'static-root
+                                                            (car p_0))))))
+                                                 (if (encoded-link-path?
+                                                      (cadr p_0))
+                                                   (let ((or-part_0
+                                                          (null? (cddr p_0))))
+                                                     (if or-part_0
+                                                       or-part_0
+                                                       (regexp? (caddr p_0))))
+                                                   #f)
+                                                 #f)
+                                               #f)
+                                             #f))
+                                         v_0)
+                                        #f)
+                                    (void)
+                                    (error "ill-formed content"))
+                                  (let ((ht_0 (make-hasheq)))
+                                    (let ((dir_0
+                                           (call-with-values
+                                            (lambda ()
+                                              (split-path links-path_0))
+                                            (lambda (base_0 name_0 dir?_0)
+                                              base_0))))
+                                      (begin
+                                        (for-each_2009
+                                         (lambda (p_0)
                                            (if (let ((or-part_0
-                                                      (string? (car p_0))))
-                                                 (if or-part_0
-                                                   or-part_0
-                                                   (let ((or-part_1
-                                                          (eq?
-                                                           'root
-                                                           (car p_0))))
-                                                     (if or-part_1
-                                                       or-part_1
-                                                       (eq?
-                                                        'static-root
-                                                        (car p_0))))))
-                                             (if (encoded-link-path?
-                                                  (cadr p_0))
-                                               (let ((or-part_0
                                                       (null? (cddr p_0))))
                                                  (if or-part_0
                                                    or-part_0
-                                                   (regexp? (caddr p_0))))
-                                               #f)
-                                             #f)
-                                           #f)
-                                         #f))
-                                     v_0)
-                                    #f)
-                                (void)
-                                (error "ill-formed content"))
-                              (let ((ht_0 (make-hasheq)))
-                                (let ((dir_0
-                                       (call-with-values
-                                        (lambda () (split-path links-path_0))
-                                        (lambda (base_0 name_0 dir?_0)
-                                          base_0))))
-                                  (begin
-                                    (for-each_2009
-                                     (lambda (p_0)
-                                       (if (let ((or-part_0
-                                                  (null? (cddr p_0))))
-                                             (if or-part_0
-                                               or-part_0
-                                               (regexp-match?
-                                                (caddr p_0)
-                                                (version))))
-                                         (let ((dir_1
-                                                (simplify-path
-                                                 (path->complete-path
-                                                  (decode-link-path (cadr p_0))
-                                                  dir_0))))
-                                           (if (eq? (car p_0) 'static-root)
-                                             (for-each_2009
-                                              (lambda (sub_0)
-                                                (if (directory-exists?
-                                                     (build-path dir_1 sub_0))
-                                                  (let ((k_0
-                                                         (string->symbol
-                                                          (path->string
-                                                           sub_0))))
-                                                    (hash-set!
-                                                     ht_0
-                                                     k_0
-                                                     (cons
-                                                      dir_1
-                                                      (hash-ref
-                                                       ht_0
-                                                       k_0
-                                                       null))))
-                                                  (void)))
-                                              (directory-list dir_1))
-                                             (if (eq? (car p_0) 'root)
-                                               (begin
-                                                 (if (hash-ref ht_0 #f #f)
-                                                   (void)
-                                                   (hash-set! ht_0 #f null))
-                                                 (hash-for-each
-                                                  ht_0
-                                                  (lambda (k_0 v_1)
-                                                    (hash-set!
-                                                     ht_0
-                                                     k_0
-                                                     (cons dir_1 v_1)))))
-                                               (let ((s_0
-                                                      (string->symbol
-                                                       (car p_0))))
-                                                 (hash-set!
-                                                  ht_0
-                                                  s_0
-                                                  (let ((app_0 (box dir_1)))
-                                                    (cons
-                                                     app_0
-                                                     (hash-ref
+                                                   (regexp-match?
+                                                    (caddr p_0)
+                                                    (version))))
+                                             (let ((dir_1
+                                                    (simplify-path
+                                                     (path->complete-path
+                                                      (decode-link-path
+                                                       (cadr p_0))
+                                                      dir_0))))
+                                               (if (eq? (car p_0) 'static-root)
+                                                 (for-each_2009
+                                                  (lambda (sub_0)
+                                                    (if (directory-exists?
+                                                         (build-path
+                                                          dir_1
+                                                          sub_0))
+                                                      (let ((k_0
+                                                             (string->symbol
+                                                              (path->string
+                                                               sub_0))))
+                                                        (hash-set!
+                                                         ht_0
+                                                         k_0
+                                                         (cons
+                                                          dir_1
+                                                          (hash-ref
+                                                           ht_0
+                                                           k_0
+                                                           null))))
+                                                      (void)))
+                                                  (directory-list dir_1))
+                                                 (if (eq? (car p_0) 'root)
+                                                   (begin
+                                                     (if (hash-ref ht_0 #f #f)
+                                                       (void)
+                                                       (hash-set!
+                                                        ht_0
+                                                        #f
+                                                        null))
+                                                     (hash-for-each
+                                                      ht_0
+                                                      (lambda (k_0 v_1)
+                                                        (hash-set!
+                                                         ht_0
+                                                         k_0
+                                                         (cons dir_1 v_1)))))
+                                                   (let ((s_0
+                                                          (string->symbol
+                                                           (car p_0))))
+                                                     (hash-set!
                                                       ht_0
                                                       s_0
-                                                      null))))))))
-                                         (void)))
-                                     v_0)
-                                    (hash-for-each
-                                     ht_0
-                                     (lambda (k_0 v_1)
-                                       (hash-set! ht_0 k_0 (reverse$1 v_1))))
-                                    (call-as-atomic
-                                     (lambda ()
-                                       (hash-set!
-                                        (unsafe-place-local-ref cell.1$1)
-                                        links-path_0
-                                        (cons ts_0 ht_0))))
-                                    ht_0))))))))))))))))))))
+                                                      (let ((app_0
+                                                             (box dir_1)))
+                                                        (cons
+                                                         app_0
+                                                         (hash-ref
+                                                          ht_0
+                                                          s_0
+                                                          null))))))))
+                                             (void)))
+                                         v_0)
+                                        (hash-for-each
+                                         ht_0
+                                         (lambda (k_0 v_1)
+                                           (hash-set!
+                                            ht_0
+                                            k_0
+                                            (reverse$1 v_1))))
+                                        (let ((lock_0
+                                               (unsafe-place-local-ref
+                                                cell.2$1)))
+                                          (unsafe-uninterruptible-lock-acquire
+                                           lock_0))
+                                        (hash-set!
+                                         (unsafe-place-local-ref cell.1$1)
+                                         links-path_0
+                                         (cons ts_0 ht_0))
+                                        (let ((lock_0
+                                               (unsafe-place-local-ref
+                                                cell.2$1)))
+                                          (unsafe-uninterruptible-lock-release
+                                           lock_0))
+                                        ht_0))))))))))))))))))))))
 (define normalize-collection-reference
   (lambda (collection_0 collection-path_0)
     (if (string? collection_0)

@@ -223,7 +223,7 @@
   (div0 [sig [(real real) -> (real)]] [flags arith-op mifoldable discard])
   (mod0 [sig [(real real) -> (real)]] [flags arith-op mifoldable discard])
   (gcd [sig [(integer ...) -> (integer)]] [flags arith-op mifoldable discard ieee r5rs])
-  (lcm [sig [(integer ...) -> (integer)]] [flags arith-op mifoldable discard ieee r5rs])
+  (lcm [sig [(integer ...) -> (real)]] [flags arith-op mifoldable discard ieee r5rs]) ; uinteger or +inf.0
   (numerator [sig [(rational) -> (integer)]] [flags arith-op mifoldable discard ieee r5rs])
   (denominator [sig [(rational) -> (integer)]] [flags arith-op mifoldable discard ieee r5rs])
   (floor [sig [(real) -> (real)]] [flags arith-op mifoldable discard safeongoodargs ieee r5rs])
@@ -1847,6 +1847,7 @@
   (vector-append [sig [(vector ...) -> (vector)]] [flags alloc safeongoodargs cp02])
   (vector-cas! [sig [(nonempty-vector sub-index ptr ptr) -> (boolean)]] [flags cptypes2])
   (vector-copy [sig [(vector) -> (vector)] [(vector sub-length sub-length) -> (vector)]] [flags alloc cp02])
+  (vector-copy! [sig [(vector sub-length vector sub-length sub-length) -> (void)]] [flags])
   (vector->immutable-vector [sig [(vector) -> (immutable-vector)]] [flags alloc cp02 safeongoodargs])
   (vector->pseudo-random-generator [sig [(nonempty-vector) -> (pseudo-random-generator)]] [flags])
   (vector->pseudo-random-generator! [sig [(pseudo-random-generator nonempty-vector) -> (void)]] [flags])

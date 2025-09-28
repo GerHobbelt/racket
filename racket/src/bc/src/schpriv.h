@@ -3774,6 +3774,7 @@ intptr_t scheme_redirect_get_or_peek_bytes(Scheme_Input_Port *orig_port,
 
 Scheme_Object *scheme_filesystem_change_evt(Scheme_Object *path, int flags, int report_errs);
 void scheme_filesystem_change_evt_cancel(Scheme_Object *evt, void *ignored_data);
+int scheme_filesystem_change_evt_ready(Scheme_Object *evt, Scheme_Schedule_Info *sinfo);
 
 void scheme_init_fd_semaphores(void);
 void scheme_release_fd_semaphores(void);
@@ -4121,6 +4122,8 @@ void scheme_place_check_for_interruption();
 void scheme_place_set_memory_use(intptr_t amt);
 void scheme_place_check_memory_use();
 void scheme_clear_place_ifs_stack();
+
+Scheme_Object *scheme_thread_parallel(int argc, Scheme_Object *argv[]);
 
 Scheme_Object **scheme_extract_sorted_keys(Scheme_Object *ht);
 void scheme_sort_resolve_ir_local_array(Scheme_IR_Local **a, intptr_t count);

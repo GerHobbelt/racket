@@ -29,12 +29,17 @@
          semaphore-post-all/atomic
 
          unsafe-semaphore-post
-         unsafe-semaphore-wait)
+         unsafe-semaphore-wait
+         unsafe-semaphore-try-wait?
+         unsafe-semaphore-try-peek?)
 
 (module+ for-thread
   ;; for creating subtypes in "thread.rkt"
   (provide (struct-out custodian-accessible-semaphore)
            semaphore))
+
+(module+ for-future
+  (provide set-future-can-take-lock?!))
 
 (struct semaphore queue ([count #:mutable]) ; -1 => non-empty queue
   #:authentic
@@ -98,13 +103,37 @@
   (check who semaphore? s)
   (unsafe-semaphore-post s))
 
+(define (current-future-can-take-lock?)
+  (or (current-thread/in-racket)
+      (let ([f (current-future)])
+        (or (not f)
+            (future-can-take-lock? f)))))
+
+(define (cas-only-mode?)
+  (and (in-atomic-mode?)
+       (not (current-thread/in-racket))  ; => really uninterruptible mode, not atomic mode
+       (current-future))) ; => not in a foreign callback during a scheduler sleep (e.g., a GUI callback)
+
 (define (unsafe-semaphore-post s)
   (define c (semaphore-count s))
   (cond
     [(and (c . >= . 0)
-          (not (current-future))
-          (unsafe-struct*-cas! s count-field-pos c (add1 c)))
+          (current-future-can-take-lock?)
+          (begin
+            (memory-order-release)
+            (unsafe-struct*-cas! s count-field-pos c (add1 c))))
      (void)]
+    [(cas-only-mode?)
+     ;; ensure that an uncontested semaphore works in uninterruptible mode,
+     ;; which means accommodating a spurious CAS failure
+     (cond
+       [(not (current-future-can-take-lock?))
+        (internal-error "posted to a semaphore from a future in uninterruptible mode")]
+       [(unsafe-struct*-cas! s count-field-pos -1 -1)
+        (internal-error "posted in uninterruptible mode to a semaphore that has been contested")]
+       [else
+        ;; try again
+        (unsafe-semaphore-post s)])]
     [else
      (atomically
       (semaphore-post/atomic s)
@@ -149,14 +178,39 @@
 
 (define/who (semaphore-try-wait? s)
   (check who semaphore? s)
-  (atomically
-   (call-pre-poll-external-callbacks)
-   (define c (semaphore-count s))
-   (cond
-     [(positive? c)
-      (set-semaphore-count! s (sub1 c))
-      #t]
-     [else #f])))
+  (unsafe-semaphore-try-wait? s #t))
+
+(define/who (unsafe-semaphore-try-wait? s decrement?)
+  (define c (semaphore-count s))
+  (cond
+    [(and (positive? c)
+          (current-future-can-take-lock?)
+          (unsafe-struct*-cas! s count-field-pos c (if decrement? (sub1 c) c)))
+     (memory-order-acquire)
+     #t]
+    [(cas-only-mode?)
+     ;; ensure that an uncontested semaphore works in uninterruptible mode,
+     ;; which means accommodating a spurious CAS failure
+     (cond
+       [(not (current-future-can-take-lock?))
+        (internal-error "waited on a semaphore from a future in uninterruptible mode")]
+       [(unsafe-struct*-cas! s count-field-pos c c)
+        #f]
+       [else
+        (unsafe-semaphore-try-wait? s decrement?)])]
+    [else
+     (atomically
+      (call-pre-poll-external-callbacks)
+      (define c (semaphore-count s))
+      (cond
+        [(positive? c)
+         (when decrement?
+           (set-semaphore-count! s (sub1 c)))
+         #t]
+        [else #f]))]))
+
+(define/who (unsafe-semaphore-try-peek? evt)
+  (unsafe-semaphore-try-wait? (semaphore-peek-evt-sema evt) #f))
 
 (define/who (semaphore-wait s)
   (check who semaphore? s)
@@ -166,19 +220,30 @@
   (define c (semaphore-count s))
   (cond
     [(and (positive? c)
-          (not (current-future))
+          (current-future-can-take-lock?)
           (unsafe-struct*-cas! s count-field-pos c (sub1 c)))
-     (void)]
+     (memory-order-acquire)]
+    [(cas-only-mode?)
+     ;; ensure that an uncontested semaphore works in uninterruptible mode,
+     ;; which means accommodating a spurious CAS failure
+     (cond
+       [(not (current-future-can-take-lock?))
+        (internal-error "waited on a semaphore from a future in uninterruptible mode")]
+       [(unsafe-struct*-cas! s count-field-pos 0 0)
+        (internal-error "waited in uninterruptible mode on a not-ready semaphore")]
+       [else
+        ;; try again
+        (unsafe-semaphore-wait s)])]
     [else
-     ((atomically
+     ((atomically/no-barrier-exit
        (define c (semaphore-count s))
        (cond
          [(positive? c)
           (set-semaphore-count! s (sub1 c))
-          void]
+          future-barrier-exit]
          [else
           (ready-nonempty-queue s)
-          (define w (current-thread/in-atomic))
+          (define w (current-thread/in-racket))
           (define n (queue-add! s w))
           (waiter-suspend!
            w
@@ -246,3 +311,8 @@
      (set-semaphore-count! s (sub1 c))]
     [else
      (internal-error "semaphore-wait/atomic: cannot decrement semaphore")]))
+
+(define future-can-take-lock? (lambda (f) #f))
+
+(define (set-future-can-take-lock?! pred)
+  (set! future-can-take-lock? pred))
