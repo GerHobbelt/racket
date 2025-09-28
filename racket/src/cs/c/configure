@@ -3065,14 +3065,6 @@ if test "${enable_sysroot}" != "" ; then
    echo "=== Using sysroot directory ${enable_sysroot}"
 fi
 
-
-
-
-# `llvm-strip` tends to delete the segment for embedded boot files;
-# since we don't compile with debugging and there isn't much C code,
-# anyway, don't bother figuring out when `strip` is ok
-enable_strip_by_default=no
-
 show_explicitly_enabled "${enable_strip}" "Debug-symbol stripping"
 show_explicitly_disabled "${enable_strip}" "Debug-symbol stripping"
 
@@ -3394,7 +3386,7 @@ if test "${enable_ios}" != "" ; then
   esac
   case "${enable_ios}" in
     iPhoneOS|iPhoneSimulator)
-     IOS_SDK=/Applications/Xcode.app/Contents/Developer/Platforms/${enable_ios}.platform/Developer/SDKs/${enable_ios}.sdk
+     IOS_SDK="$(xcode-select -p)/Platforms/${enable_ios}.platform/Developer/SDKs/${enable_ios}.sdk"
      echo "=== Using inferred iOS SDK path ${IOS_SDK}"
      ;;
     *)

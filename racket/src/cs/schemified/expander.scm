@@ -15415,6 +15415,8 @@
 (define linklet-import-variables$1 linklet-import-variables)
 (define linklet-export-variables$1 linklet-export-variables)
 (define 1/linklet-add-target-machine-info linklet-add-target-machine-info)
+(define 1/linklet-summarize-target-machine-info
+  linklet-summarize-target-machine-info)
 (define 1/instance? instance?)
 (define 1/make-instance make-instance)
 (define 1/instance-name instance-name)
@@ -15425,6 +15427,7 @@
 (define 1/instance-unset-variable! instance-unset-variable!)
 (define 1/instance-describe-variable! instance-describe-variable!)
 (define 1/linklet-virtual-machine-bytes linklet-virtual-machine-bytes)
+(define 1/linklet-cross-machine-type linklet-cross-machine-type)
 (define 1/write-linklet-bundle-hash write-linklet-bundle-hash)
 (define 1/read-linklet-bundle-hash read-linklet-bundle-hash)
 (define 1/variable-reference? variable-reference?)
@@ -35448,8 +35451,17 @@
                 (let ((expr_1 expr_0))
                   (correlated-linklet1.1 expr_1 name_0 #f))))
             v_0))))))
+(define machine-type-vm-bytes
+  (lambda (machine-type_0)
+    (if (eq? machine-type_0 (system-type 'target-machine))
+      vm-bytes$1
+      (string->bytes/utf-8 (symbol->string machine-type_0)))))
 (define write-linklet-bundle
-  (lambda (b_0 as-correlated-linklet?_0 linklet-bundle->hash_0 port_0)
+  (lambda (b_0
+           as-correlated-linklet?_0
+           linklet-bundle->hash_0
+           machine-type_0
+           port_0)
     (begin
       (write-bytes #vu8(35 126) port_0)
       (write-bytes (bytes (unsafe-bytes-length version-bytes$1)) port_0)
@@ -35457,7 +35469,7 @@
       (let ((vm-bytes_0
              (if as-correlated-linklet?_0
                correlated-linklet-vm-bytes
-               vm-bytes$1)))
+               (machine-type-vm-bytes machine-type_0))))
         (begin
           (write-bytes (bytes (unsafe-bytes-length vm-bytes_0)) port_0)
           (write-bytes vm-bytes_0 port_0)))
@@ -35471,13 +35483,14 @@
          (|#%app| linklet-bundle->hash_0 b_0)
          port_0)))))
 (define linklet-bundle->bytes
-  (lambda (b_0 as-correlated-linklet?_0 linklet-bundle->hash_0)
+  (lambda (b_0 as-correlated-linklet?_0 linklet-bundle->hash_0 machine-type_0)
     (let ((o_0 (open-output-bytes)))
       (begin
         (write-linklet-bundle
          b_0
          as-correlated-linklet?_0
          linklet-bundle->hash_0
+         machine-type_0
          o_0)
         (get-output-bytes o_0)))))
 (define write-linklet-directory
@@ -35485,11 +35498,12 @@
            as-correlated-linklet?_0
            linklet-directory->hash_0
            linklet-bundle->hash_0
+           machine-type_0
            port_0)
     (let ((vm-bytes_0
            (if as-correlated-linklet?_0
              correlated-linklet-vm-bytes
-             vm-bytes$1)))
+             (machine-type-vm-bytes machine-type_0))))
       (begin
         (write-bytes #vu8(35 126) port_0)
         (begin
@@ -35536,7 +35550,8 @@
                                                      (linklet-bundle->bytes
                                                       value_0
                                                       as-correlated-linklet?_0
-                                                      linklet-bundle->hash_0)))
+                                                      linklet-bundle->hash_0
+                                                      machine-type_0)))
                                                   accum_1)
                                                  #t)
                                                 (values
@@ -35743,7 +35758,7 @@
 (define write-int
   (lambda (n_0 port_0)
     (write-bytes (integer->integer-bytes n_0 4 #f #f) port_0)))
-(define finish_2267
+(define finish_2666
   (make-struct-type-install-properties
    '(linklet-directory)
    1
@@ -35753,12 +35768,14 @@
     (cons
      prop:custom-write
      (lambda (ld_0 port_0 mode_0)
-       (write-linklet-directory
-        ld_0
-        (correlated-linklet-directory? ld_0)
-        linklet-directory->hash$1
-        1/linklet-bundle->hash
-        port_0))))
+       (let ((machine-type_0 (linklet-directory-machine-type ld_0)))
+         (write-linklet-directory
+          ld_0
+          (not machine-type_0)
+          linklet-directory->hash$1
+          1/linklet-bundle->hash
+          machine-type_0
+          port_0)))))
    (current-inspector)
    #f
    '(0)
@@ -35772,7 +35789,7 @@
    #f
    #f
    '(1 . 0)))
-(define effect_2692 (finish_2267 struct:linklet-directory))
+(define effect_2692 (finish_2666 struct:linklet-directory))
 (define linklet-directory1.1
   (|#%name|
    linklet-directory
@@ -35805,7 +35822,7 @@
          0
          s
          'ht))))))
-(define finish_2265
+(define finish_2355
   (make-struct-type-install-properties
    '(linklet-bundle)
    1
@@ -35815,11 +35832,13 @@
     (cons
      prop:custom-write
      (lambda (b_0 port_0 mode_0)
-       (write-linklet-bundle
-        b_0
-        (correlated-linklet-bundle? b_0)
-        1/linklet-bundle->hash
-        port_0))))
+       (let ((machine-type_0 (linklet-bundle-machine-type b_0)))
+         (write-linklet-bundle
+          b_0
+          (not machine-type_0)
+          1/linklet-bundle->hash
+          machine-type_0
+          port_0)))))
    (current-inspector)
    #f
    '(0)
@@ -35833,7 +35852,7 @@
    #f
    #f
    '(1 . 0)))
-(define effect_2464 (finish_2265 struct:linklet-bundle))
+(define effect_2464 (finish_2355 struct:linklet-bundle))
 (define linklet-bundle2.1
   (|#%name|
    linklet-bundle
@@ -35970,7 +35989,7 @@
          (void)
          (raise-argument-error 'linklet-bundle->hash "linklet-bundle?" ld_0))
        (linklet-bundle-ht ld_0)))))
-(define correlated-linklet-directory?
+(define linklet-directory-machine-type
   (lambda (ld_0)
     (let ((ht_0 (linklet-directory->hash$1 ld_0)))
       (letrec*
@@ -35985,19 +36004,17 @@
                  (let ((result_1
                         (let ((result_1
                                (if (not k_0)
-                                 (correlated-linklet-bundle? v_0)
+                                 (linklet-bundle-machine-type v_0)
                                  (if (symbol? k_0)
-                                   (correlated-linklet-directory? v_0)
-                                   #t))))
+                                   (linklet-directory-machine-type v_0)
+                                   #f))))
                           (values result_1))))
-                   (if (if (not (let ((x_0 (list k_0 v_0))) (not result_1)))
-                         #t
-                         #f)
+                   (if (if (not (let ((x_0 (list k_0 v_0))) result_1)) #t #f)
                      (for-loop_0 result_1 (hash-iterate-next ht_0 i_0))
                      result_1))))
               result_0)))))
-       (for-loop_0 #t (hash-iterate-first ht_0))))))
-(define correlated-linklet-bundle?
+       (for-loop_0 #f (hash-iterate-first ht_0))))))
+(define linklet-bundle-machine-type
   (lambda (b_0)
     (let ((ht_0 (1/linklet-bundle->hash b_0)))
       (letrec*
@@ -36010,15 +36027,22 @@
                (lambda () (hash-iterate-key+value ht_0 i_0))
                (lambda (k_0 v_0)
                  (let ((result_1
-                        (let ((result_1 (not (linklet? v_0))))
+                        (let ((result_1
+                               (if (linklet? v_0)
+                                 (let ((or-part_0
+                                        (|#%app|
+                                         linklet-cross-machine-type
+                                         v_0)))
+                                   (if or-part_0
+                                     or-part_0
+                                     (system-type 'target-machine)))
+                                 #f)))
                           (values result_1))))
-                   (if (if (not (let ((x_0 (list k_0 v_0))) (not result_1)))
-                         #t
-                         #f)
+                   (if (if (not (let ((x_0 (list k_0 v_0))) result_1)) #t #f)
                      (for-loop_0 result_1 (hash-iterate-next ht_0 i_0))
                      result_1))))
               result_0)))))
-       (for-loop_0 #t (hash-iterate-first ht_0))))))
+       (for-loop_0 #f (hash-iterate-first ht_0))))))
 (define finish_2892
   (make-struct-type-install-properties
    '(namespace-scopes)
@@ -48326,155 +48350,270 @@
        (if (1/compiled-expression? c_0)
          (void)
          (raise-argument-error
-          'compiled-expression-recompile
+          'compiled-expression-add-target-machine
           "compiled-expression?"
           c_0))
-       (begin
-         (if (1/compiled-expression? from-c_0)
-           (void)
-           (raise-argument-error
-            'compiled-expression-recompile
-            "compiled-expression?"
-            from-c_0))
-         (let ((looks-wrong_0
-                (|#%name|
-                 looks-wrong
-                 (lambda ()
-                   (raise-arguments-error
-                    'compiled-expression-recompile
-                    (string-append
-                     "compiled expressions are not compatible;\n"
-                     " they appear to be from compiling different modules"))))))
-           (let ((get-linklet_0
+       (let ((from-hash?_0 (hash? from-c_0)))
+         (begin
+           (if (if from-hash?_0 from-hash?_0 (1/compiled-expression? from-c_0))
+             (void)
+             (raise-argument-error
+              'compiled-expression-add-target-machine
+              "(or/c compiled-expression? hash?)"
+              from-c_0))
+           (let ((looks-wrong_0
                   (|#%name|
-                   get-linklet
-                   (lambda (c_1)
-                     (if (let ((or-part_0 (1/linklet-bundle? c_1)))
-                           (if or-part_0 or-part_0 (linklet-directory?$1 c_1)))
-                       c_1
-                       (compiled-in-memory-linklet-directory c_1))))))
-             (let ((c_1 (get-linklet_0 c_0)))
-               (let ((from-c_1 (get-linklet_0 from-c_0)))
-                 (let ((c_2 c_1))
-                   (let ((bundles_0
-                          (extract-linklet-bundles c_2 '() hash2725)))
-                     (let ((from-bundles_0
-                            (extract-linklet-bundles from-c_1 '() hash2725)))
-                       (begin
-                         (if (let ((app_0 (hash-count bundles_0)))
-                               (= app_0 (hash-count from-bundles_0)))
-                           (void)
-                           (looks-wrong_0))
-                         (let ((table_0 hash2725))
-                           (let ((new-bundles_0
-                                  (let ((table_1 table_0))
-                                    (letrec*
-                                     ((for-loop_0
-                                       (|#%name|
-                                        for-loop
-                                        (lambda (table_2 i_0)
-                                          (if i_0
-                                            (let ((k_0
-                                                   (hash-iterate-key
-                                                    bundles_0
-                                                    i_0)))
-                                              (let ((table_3
-                                                     (let ((table_3
-                                                            (call-with-values
-                                                             (lambda ()
-                                                               (let ((b_0
-                                                                      (hash-ref
-                                                                       bundles_0
-                                                                       k_0)))
-                                                                 (let ((from-b_0
+                   looks-wrong
+                   (lambda ()
+                     (raise-arguments-error
+                      'compiled-expression-add-target-machine
+                      (string-append
+                       "compiled expressions are not compatible;\n"
+                       " they appear to be from compiling different modules"))))))
+             (let ((get-linklet_0
+                    (|#%name|
+                     get-linklet
+                     (lambda (c_1)
+                       (if (let ((or-part_0 (1/linklet-bundle? c_1)))
+                             (if or-part_0
+                               or-part_0
+                               (linklet-directory?$1 c_1)))
+                         c_1
+                         (compiled-in-memory-linklet-directory c_1))))))
+               (let ((c_1 (get-linklet_0 c_0)))
+                 (let ((from-c_1
+                        (if from-hash?_0 from-c_0 (get-linklet_0 from-c_0))))
+                   (let ((c_2 c_1))
+                     (let ((bundles_0
+                            (extract-linklet-bundles c_2 '() hash2725)))
+                       (let ((from-bundles_0
+                              (if from-hash?_0
+                                from-c_1
+                                (extract-linklet-bundles
+                                 from-c_1
+                                 '()
+                                 hash2725))))
+                         (begin
+                           (if (let ((app_0 (hash-count bundles_0)))
+                                 (= app_0 (hash-count from-bundles_0)))
+                             (void)
+                             (looks-wrong_0))
+                           (let ((table_0 hash2725))
+                             (let ((new-bundles_0
+                                    (let ((table_1 table_0))
+                                      (letrec*
+                                       ((for-loop_0
+                                         (|#%name|
+                                          for-loop
+                                          (lambda (table_2 i_0)
+                                            (if i_0
+                                              (let ((k_0
+                                                     (hash-iterate-key
+                                                      bundles_0
+                                                      i_0)))
+                                                (let ((table_3
+                                                       (let ((table_3
+                                                              (call-with-values
+                                                               (lambda ()
+                                                                 (let ((b_0
                                                                         (hash-ref
-                                                                         from-bundles_0
-                                                                         k_0
-                                                                         #f)))
-                                                                   (begin
-                                                                     (if from-b_0
-                                                                       (void)
-                                                                       (looks-wrong_0))
-                                                                     (let ((h_0
-                                                                            (1/linklet-bundle->hash
-                                                                             b_0)))
-                                                                       (let ((from-h_0
+                                                                         bundles_0
+                                                                         k_0)))
+                                                                   (let ((from-b_0
+                                                                          (hash-ref
+                                                                           from-bundles_0
+                                                                           k_0
+                                                                           #f)))
+                                                                     (begin
+                                                                       (if from-b_0
+                                                                         (void)
+                                                                         (looks-wrong_0))
+                                                                       (let ((h_0
                                                                               (1/linklet-bundle->hash
-                                                                               from-b_0)))
-                                                                         (let ((new-b_0
-                                                                                (1/hash->linklet-bundle
-                                                                                 (letrec*
-                                                                                  ((for-loop_1
-                                                                                    (|#%name|
-                                                                                     for-loop
-                                                                                     (lambda (h_1
-                                                                                              i_1)
-                                                                                       (if i_1
-                                                                                         (call-with-values
-                                                                                          (lambda ()
-                                                                                            (hash-iterate-key+value
-                                                                                             h_0
-                                                                                             i_1))
-                                                                                          (lambda (phase_0
-                                                                                                   body-linklet_0)
-                                                                                            (let ((h_2
-                                                                                                   (if (exact-integer?
-                                                                                                        phase_0)
-                                                                                                     (let ((h_2
-                                                                                                            (let ((from-body-linklet_0
-                                                                                                                   (hash-ref
-                                                                                                                    from-h_0
-                                                                                                                    phase_0
-                                                                                                                    #f)))
-                                                                                                              (begin
-                                                                                                                (if from-body-linklet_0
-                                                                                                                  (void)
-                                                                                                                  (looks-wrong_0))
-                                                                                                                (hash-set
-                                                                                                                 h_1
-                                                                                                                 phase_0
-                                                                                                                 (linklet-add-target-machine-info
-                                                                                                                  body-linklet_0
-                                                                                                                  from-body-linklet_0))))))
-                                                                                                       (values
-                                                                                                        h_2))
-                                                                                                     h_1)))
-                                                                                              (for-loop_1
-                                                                                               h_2
-                                                                                               (hash-iterate-next
-                                                                                                h_0
-                                                                                                i_1)))))
-                                                                                         h_1)))))
-                                                                                  (for-loop_1
-                                                                                   h_0
-                                                                                   (hash-iterate-first
-                                                                                    h_0))))))
-                                                                           (values
-                                                                            k_0
-                                                                            (recompiled1.1
-                                                                             new-b_0
-                                                                             #f
-                                                                             #f)))))))))
-                                                             (lambda (key_0
-                                                                      val_0)
-                                                               (hash-set
-                                                                table_2
-                                                                key_0
-                                                                val_0)))))
-                                                       (values table_3))))
-                                                (for-loop_0
-                                                 table_3
-                                                 (hash-iterate-next
-                                                  bundles_0
-                                                  i_0))))
-                                            table_2)))))
-                                     (for-loop_0
-                                      table_1
-                                      (hash-iterate-first bundles_0))))))
-                             (replace-linklet-bundles
-                              c_2
-                              '()
-                              new-bundles_0))))))))))))))))
+                                                                               b_0)))
+                                                                         (let ((from-h_0
+                                                                                (if from-hash?_0
+                                                                                  (begin
+                                                                                    (if (hash?
+                                                                                         from-b_0)
+                                                                                      (void)
+                                                                                      (looks-wrong_0))
+                                                                                    from-b_0)
+                                                                                  (1/linklet-bundle->hash
+                                                                                   from-b_0))))
+                                                                           (let ((new-b_0
+                                                                                  (1/hash->linklet-bundle
+                                                                                   (letrec*
+                                                                                    ((for-loop_1
+                                                                                      (|#%name|
+                                                                                       for-loop
+                                                                                       (lambda (h_1
+                                                                                                i_1)
+                                                                                         (if i_1
+                                                                                           (call-with-values
+                                                                                            (lambda ()
+                                                                                              (hash-iterate-key+value
+                                                                                               h_0
+                                                                                               i_1))
+                                                                                            (lambda (phase_0
+                                                                                                     body-linklet_0)
+                                                                                              (let ((h_2
+                                                                                                     (if (exact-integer?
+                                                                                                          phase_0)
+                                                                                                       (let ((h_2
+                                                                                                              (let ((from-body-linklet_0
+                                                                                                                     (hash-ref
+                                                                                                                      from-h_0
+                                                                                                                      phase_0
+                                                                                                                      #f)))
+                                                                                                                (begin
+                                                                                                                  (if from-body-linklet_0
+                                                                                                                    (void)
+                                                                                                                    (looks-wrong_0))
+                                                                                                                  (hash-set
+                                                                                                                   h_1
+                                                                                                                   phase_0
+                                                                                                                   (linklet-add-target-machine-info
+                                                                                                                    body-linklet_0
+                                                                                                                    from-body-linklet_0))))))
+                                                                                                         (values
+                                                                                                          h_2))
+                                                                                                       h_1)))
+                                                                                                (for-loop_1
+                                                                                                 h_2
+                                                                                                 (hash-iterate-next
+                                                                                                  h_0
+                                                                                                  i_1)))))
+                                                                                           h_1)))))
+                                                                                    (for-loop_1
+                                                                                     h_0
+                                                                                     (hash-iterate-first
+                                                                                      h_0))))))
+                                                                             (values
+                                                                              k_0
+                                                                              (recompiled1.1
+                                                                               new-b_0
+                                                                               #f
+                                                                               #f)))))))))
+                                                               (lambda (key_0
+                                                                        val_0)
+                                                                 (hash-set
+                                                                  table_2
+                                                                  key_0
+                                                                  val_0)))))
+                                                         (values table_3))))
+                                                  (for-loop_0
+                                                   table_3
+                                                   (hash-iterate-next
+                                                    bundles_0
+                                                    i_0))))
+                                              table_2)))))
+                                       (for-loop_0
+                                        table_1
+                                        (hash-iterate-first bundles_0))))))
+                               (replace-linklet-bundles
+                                c_2
+                                '()
+                                new-bundles_0)))))))))))))))))
+(define 1/compiled-expression-summarize-target-machine
+  (|#%name|
+   compiled-expression-summarize-target-machine
+   (lambda (from-c_0)
+     (begin
+       (if (1/compiled-expression? from-c_0)
+         (void)
+         (raise-argument-error
+          'compiled-expression-recompile
+          "compiled-expression?"
+          from-c_0))
+       (let ((get-linklet_0
+              (|#%name|
+               get-linklet
+               (lambda (c_0)
+                 (if (let ((or-part_0 (1/linklet-bundle? c_0)))
+                       (if or-part_0 or-part_0 (linklet-directory?$1 c_0)))
+                   c_0
+                   (compiled-in-memory-linklet-directory c_0))))))
+         (let ((from-c_1 (get-linklet_0 from-c_0)))
+           (let ((from-bundles_0
+                  (extract-linklet-bundles from-c_1 '() hash2725)))
+             (let ((table_0 hash2725))
+               (let ((table_1 table_0))
+                 (letrec*
+                  ((for-loop_0
+                    (|#%name|
+                     for-loop
+                     (lambda (table_2 i_0)
+                       (if i_0
+                         (call-with-values
+                          (lambda ()
+                            (hash-iterate-key+value from-bundles_0 i_0))
+                          (lambda (k_0 from-b_0)
+                            (let ((table_3
+                                   (let ((table_3
+                                          (call-with-values
+                                           (lambda ()
+                                             (let ((from-h_0
+                                                    (1/linklet-bundle->hash
+                                                     from-b_0)))
+                                               (let ((table_3 hash2725))
+                                                 (let ((new-h_0
+                                                        (let ((table_4
+                                                               table_3))
+                                                          (letrec*
+                                                           ((for-loop_1
+                                                             (|#%name|
+                                                              for-loop
+                                                              (lambda (table_5
+                                                                       i_1)
+                                                                (if i_1
+                                                                  (call-with-values
+                                                                   (lambda ()
+                                                                     (hash-iterate-key+value
+                                                                      from-h_0
+                                                                      i_1))
+                                                                   (lambda (phase_0
+                                                                            from-body-linklet_0)
+                                                                     (let ((table_6
+                                                                            (if (exact-integer?
+                                                                                 phase_0)
+                                                                              (let ((table_6
+                                                                                     (call-with-values
+                                                                                      (lambda ()
+                                                                                        (values
+                                                                                         phase_0
+                                                                                         (linklet-summarize-target-machine-info
+                                                                                          from-body-linklet_0)))
+                                                                                      (lambda (key_0
+                                                                                               val_0)
+                                                                                        (hash-set
+                                                                                         table_5
+                                                                                         key_0
+                                                                                         val_0)))))
+                                                                                (values
+                                                                                 table_6))
+                                                                              table_5)))
+                                                                       (for-loop_1
+                                                                        table_6
+                                                                        (hash-iterate-next
+                                                                         from-h_0
+                                                                         i_1)))))
+                                                                  table_5)))))
+                                                           (for-loop_1
+                                                            table_4
+                                                            (hash-iterate-first
+                                                             from-h_0))))))
+                                                   (values k_0 new-h_0)))))
+                                           (lambda (key_0 val_0)
+                                             (hash-set table_2 key_0 val_0)))))
+                                     (values table_3))))
+                              (for-loop_0
+                               table_3
+                               (hash-iterate-next from-bundles_0 i_0)))))
+                         table_2)))))
+                  (for-loop_0
+                   table_1
+                   (hash-iterate-first from-bundles_0))))))))))))
 (define create-compiled-in-memorys-using-shared-data
   (lambda (tops_0 data-linklet_0 ns_0)
     (let ((data-instance_0
@@ -71178,13 +71317,22 @@
                         (begin
                           (if (if as-correlated-linklet?_0
                                 as-correlated-linklet?_0
-                                (equal? vm_0 vm-bytes$1))
+                                (let ((or-part_0 (equal? vm_0 vm-bytes$1)))
+                                  (if or-part_0
+                                    or-part_0
+                                    (let ((app_0
+                                           (equal? vm_0 #vu8(114 97 99 107 101 116))))
+                                      (equal?
+                                       app_0
+                                       (equal?
+                                        vm-bytes$1
+                                        #vu8(114 97 99 107 101 116)))))))
                             (void)
                             (let ((app_0 (bytes->string/utf-8 vm-bytes$1)))
                               (let ((app_1 (bytes->string/utf-8 vm_0 '#\x3f)))
                                 (raise-read-error
                                  '|loading code|
-                                 "virtual-machine mismatch"
+                                 "machine mismatch"
                                  "expected"
                                  app_0
                                  "found"
@@ -71202,7 +71350,12 @@
                                        (if as-correlated-linklet?_0
                                          (read-correlated-linklet-bundle-hash
                                           in_0)
-                                         (read-linklet-bundle-hash in_0))))
+                                         (read-linklet-bundle-hash
+                                          in_0
+                                          (if (not (equal? vm_0 vm-bytes$1))
+                                            (string->symbol
+                                             (bytes->string/utf-8 vm_0 '#\x3f))
+                                            #f)))))
                                   (begin
                                     (if (hash? b-ht_0)
                                       (void)
@@ -74858,6 +75011,8 @@
    1/compiled-expression-recompile
    'compiled-expression-add-target-machine
    1/compiled-expression-add-target-machine
+   'compiled-expression-summarize-target-machine
+   1/compiled-expression-summarize-target-machine
    'make-empty-namespace
    1/make-empty-namespace
    'namespace-attach-module
@@ -75089,6 +75244,8 @@
    compile-linklet
    'linklet-add-target-machine-info
    linklet-add-target-machine-info
+   'linklet-summarize-target-machine-info
+   linklet-summarize-target-machine-info
    'instance?
    instance?
    'make-instance
@@ -75109,6 +75266,8 @@
    instance-describe-variable!
    'linklet-virtual-machine-bytes
    linklet-virtual-machine-bytes
+   'linklet-cross-machine-type
+   linklet-cross-machine-type
    'write-linklet-bundle-hash
    write-linklet-bundle-hash
    'read-linklet-bundle-hash
@@ -75498,7 +75657,8 @@
       #f)))
 (define version-bytes (string->bytes/utf-8 (version)))
 (define version-length (unsafe-bytes-length version-bytes))
-(define vm-bytes (string->bytes/utf-8 (symbol->string 'chez-scheme)))
+(define vm-bytes
+  (string->bytes/utf-8 (symbol->string (system-type 'target-machine))))
 (define vm-length (unsafe-bytes-length vm-bytes))
 (define linklet-bundle-or-directory-start
   (lambda (i_0 tag_0)
