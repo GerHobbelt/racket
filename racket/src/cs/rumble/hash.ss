@@ -160,8 +160,19 @@
 
 (define (mutable-hash-set! ht k v)
   (lock-acquire (mutable-hash-lock ht))
-  (hashtable-set! (mutable-hash-ht ht) k v)
-  (set-locked-iterable-hash-retry?! ht #t)
+  (cond
+    [(locked-iterable-hash-cells ht)
+     ;; If `k` is already mapped, we're obliged to keep a cells vector that
+     ;; may be in progress, but if it's new, we can flush
+     (let ([p (hashtable-cell (mutable-hash-ht ht) k none2)])
+       (when (eq? (cdr p) none2)
+         ;; Flushing `cells` allows the vector to shrink if entries are removed
+         (set-locked-iterable-hash-cells! ht #f)
+         ;; Setting `hash-retry?` ensures that the vector is grown until it covers all entries
+         (set-locked-iterable-hash-retry?! ht #t))
+       (set-cdr! p v))]
+    [else
+     (hashtable-set! (mutable-hash-ht ht) k v)])
   (lock-release (mutable-hash-lock ht)))
 
 (define (hash-remove! ht k)
@@ -184,6 +195,8 @@
       ;; Clear cell, because it may be in `(locked-iterable-hash-cells ht)`
       (set-car! cell #!bwp)
       (set-cdr! cell #!bwp)
+      ;; Setting `hash-retry?` allows an in-progress traversal to keep going,
+      ;; and it will pick up existing keys if they get reordered to earlier
       (set-locked-iterable-hash-retry?! ht #t)]
      [else
       (hashtable-delete! (mutable-hash-ht ht) k)]))
@@ -209,6 +222,7 @@
 (define (mutable-hash-clear! ht)
   (lock-acquire (mutable-hash-lock ht))
   (set-locked-iterable-hash-cells! ht #f)
+  (set-locked-iterable-hash-retry?! ht #t)
   (hashtable-clear! (mutable-hash-ht ht))
   (lock-release (mutable-hash-lock ht)))
 

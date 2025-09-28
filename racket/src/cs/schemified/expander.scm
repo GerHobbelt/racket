@@ -10610,13 +10610,13 @@
 (define cell.4$1 (unsafe-make-place-local (make-cached-sets)))
 (define cell.5$1 (unsafe-make-place-local 0))
 (define make-cached-hashes (lambda () (make-weak-box (make-vector 8 #f))))
-(define cell.6$1 (unsafe-make-place-local (make-cached-hashes)))
+(define cell.6 (unsafe-make-place-local (make-cached-hashes)))
 (define cell.7 (unsafe-make-place-local 0))
 (define sets-place-init!
   (lambda ()
     (begin
       (unsafe-place-local-set! cell.4$1 (make-cached-sets))
-      (unsafe-place-local-set! cell.6$1 (make-cached-hashes)))))
+      (unsafe-place-local-set! cell.6 (make-cached-hashes)))))
 (define cache-or-reuse-set
   (lambda (s_0)
     (let ((vec_0
@@ -10663,13 +10663,12 @@
 (define cache-or-reuse-hash
   (lambda (s_0)
     (let ((vec_0
-           (let ((or-part_0
-                  (weak-box-value (unsafe-place-local-ref cell.6$1))))
+           (let ((or-part_0 (weak-box-value (unsafe-place-local-ref cell.6))))
              (if or-part_0
                or-part_0
                (let ((vec_0 (make-vector 8 #f)))
                  (begin
-                   (unsafe-place-local-set! cell.6$1 (make-weak-box vec_0))
+                   (unsafe-place-local-set! cell.6 (make-weak-box vec_0))
                    vec_0))))))
       (let ((or-part_0
              (call-with-values
@@ -15413,12 +15412,10 @@
                         (sync/timeout
                          0
                          app_0
-                         (let ((or-part_1
-                                (let ((t_0 (weak-box-value (cdr v_0))))
-                                  (if (not (eq? (current-thread) t_0))
-                                    t_0
-                                    #f))))
-                           (if or-part_1 or-part_1 never-evt))))))
+                         (let ((t_0 (weak-box-value (cdr v_0))))
+                           (if (eq? t_0 (current-thread))
+                             never-evt
+                             (if t_0 t_0 always-evt)))))))
                 (let ((sema_0 (make-semaphore)))
                   (let ((lock_0
                          (let ((app_0 (semaphore-peek-evt sema_0)))
@@ -15442,7 +15439,7 @@
                       (sync
                        app_0
                        (let ((or-part_0 (weak-box-value (cdr v_0))))
-                         (if or-part_0 or-part_0 never-evt))))
+                         (if or-part_0 or-part_0 always-evt))))
                     (loop_0)))))))))
        (loop_0)))))
 (define finish_2563
@@ -27968,13 +27965,16 @@
            self-mpi_0
            phase-shift_0
            inspector_0
-           deserialized-syntax-vector_0
+           deserialized-syntax-vector/box_0
            bulk-binding-registry_0
            deserialize-syntax_0)
-    (begin
-      (if (unsafe-vector*-ref deserialized-syntax-vector_0 0)
-        (void)
-        (|#%app| deserialize-syntax_0 bulk-binding-registry_0))
+    (let ((deserialized-syntax-vector_0
+           (let ((or-part_0 (unbox deserialized-syntax-vector/box_0)))
+             (if or-part_0
+               or-part_0
+               (begin
+                 (|#%app| deserialize-syntax_0 bulk-binding-registry_0)
+                 (unbox deserialized-syntax-vector/box_0))))))
       (let ((stx_0
              (let ((temp50_0
                     (syntax-shift-phase-level$1
@@ -36554,32 +36554,53 @@
              app_1
              (let ((app_2
                     (list
-                     'vector-copy!
-                     deserialized-syntax-vector-id
-                     ''0
-                     (let ((app_2 (list (list* (list inspector-id) '(#f)))))
-                       (list
-                        'let-values
-                        app_2
-                        (let ((temp21_0
-                               (vector->immutable-vector
-                                (list->vector
-                                 (reverse$1 (syntax-literals-stxes sl_0))))))
-                          (generate-deserialize.1
-                           #f
-                           #f
-                           unsafe-undefined
-                           unsafe-undefined
-                           mpis_0
-                           #f
-                           hash2610
-                           #f
-                           #t
-                           temp21_0)))))))
+                     (list
+                      '(vec)
+                      (let ((app_2 (list (list* (list inspector-id) '(#f)))))
+                        (list
+                         'let-values
+                         app_2
+                         (let ((temp21_0
+                                (vector->immutable-vector
+                                 (list->vector
+                                  (reverse$1 (syntax-literals-stxes sl_0))))))
+                           (generate-deserialize.1
+                            #f
+                            #f
+                            unsafe-undefined
+                            unsafe-undefined
+                            mpis_0
+                            #f
+                            hash2610
+                            #f
+                            #t
+                            temp21_0))))))))
                (list
-                'begin
+                'let-values
                 app_2
-                (list* 'set! deserialize-syntax-id '(#f))))))))))))
+                (list
+                 'begin
+                 (list*
+                  'letrec-values
+                  (list
+                   (list
+                    '(loop)
+                    (list
+                     'lambda
+                     '()
+                     (list
+                      'if
+                      (list* 'box-cas! deserialized-syntax-vector-id '(#f vec))
+                      'vec
+                      (list*
+                       'let-values
+                       (list
+                        (list
+                         '(other-vec)
+                         (list 'unbox deserialized-syntax-vector-id)))
+                       '((if other-vec other-vec (loop))))))))
+                  '((loop)))
+                 (list* 'set! deserialize-syntax-id '(#f)))))))))))))
 (define generate-lazy-syntax-literal-lookup
   (lambda (pos_0) (list get-syntax-literal!-id pos_0)))
 (define generate-eager-syntax-literals!
@@ -37065,7 +37086,7 @@
    #f
    'constant
    deserialized-syntax-vector-id
-   (vector)
+   (box (vector))
    deserialize-syntax-id
    void))
 (define empty-instance-instance (make-instance-instance.1 #f #f #f #f #f #f))
@@ -43749,32 +43770,25 @@
                                                              (generate-module-path-index-deserialize.1
                                                               #f
                                                               mpis_0)))))
-                                                     (let ((app_3
-                                                            (let ((app_3
-                                                                   (list
-                                                                    deserialized-syntax-vector-id)))
-                                                              (list
-                                                               'define-values
-                                                               app_3
-                                                               (list*
-                                                                'make-vector
-                                                                (add1 phase_0)
-                                                                '(#f))))))
+                                                     (list
+                                                      'linklet
+                                                      app_0
+                                                      app_1
+                                                      app_2
+                                                      (list*
+                                                       'define-values
                                                        (list
-                                                        'linklet
-                                                        app_0
-                                                        app_1
-                                                        app_2
-                                                        app_3
-                                                        (list
-                                                         'define-values
-                                                         '(phase-to-link-modules)
-                                                         phase-to-link-module-uses-expr_0)
-                                                        (list
-                                                         'define-values
-                                                         (list
-                                                          syntax-literals-id)
-                                                         syntax-literals-expr_0)))))))
+                                                        deserialized-syntax-vector-id)
+                                                       '((box #f)))
+                                                      (list
+                                                       'define-values
+                                                       '(phase-to-link-modules)
+                                                       phase-to-link-module-uses-expr_0)
+                                                      (list
+                                                       'define-values
+                                                       (list
+                                                        syntax-literals-id)
+                                                       syntax-literals-expr_0))))))
                                             (if to-correlated-linklet?3_0
                                               (correlated-linklet1.1 s_0 #f #f)
                                               (begin
@@ -45560,7 +45574,7 @@
      deserialize-syntax-id
      void
      deserialized-syntax-vector-id
-     (compiled-in-memory-syntax-literals cim_0))))
+     (box (compiled-in-memory-syntax-literals cim_0)))))
 (define empty-syntax-literals-instance/empty-namespace
   (make-instance
    'empty-stx/empty-ns
@@ -47111,17 +47125,12 @@
                                                                                            deserialized-syntax-vector-id
                                                                                            deserialize-syntax-id)))
                                                                                      (let ((app_2
-                                                                                            (let ((app_2
-                                                                                                   (list
-                                                                                                    deserialized-syntax-vector-id)))
-                                                                                              (list
-                                                                                               'define-values
-                                                                                               app_2
-                                                                                               (list*
-                                                                                                'make-vector
-                                                                                                (syntax-literals-count
-                                                                                                 syntax-literals_0)
-                                                                                                '(#f))))))
+                                                                                            (list*
+                                                                                             'define-values
+                                                                                             (list
+                                                                                              deserialized-syntax-vector-id)
+                                                                                             '((box
+                                                                                                #f)))))
                                                                                        (list*
                                                                                         'linklet
                                                                                         app_0
@@ -76205,8 +76214,7 @@
          (hash-set cache_0 p_0 v_0))))))
 (define -loading-filename (gensym))
 (define -loading-prompt-tag (make-continuation-prompt-tag 'module-loading))
-(define cell.3 (unsafe-make-place-local #f))
-(define cell.4 (unsafe-make-place-local #f))
+(define cell.3 (unsafe-make-place-local (cons #f #f)))
 (define split-relative-string
   (lambda (s_0 coll-mode?_0)
     (let ((l_0
@@ -76257,18 +76265,18 @@
               app_2
               app_3
               (1/syntax-span stx_0)))))))))
+(define cell.4 (unsafe-make-place-local #f))
 (define cell.5 (unsafe-make-place-local #f))
-(define cell.6 (unsafe-make-place-local #f))
 (define prep-planet-resolver!
   (lambda ()
-    (if (unsafe-place-local-ref cell.6)
+    (if (unsafe-place-local-ref cell.5)
       (void)
       (with-continuation-mark*
        authentic
        parameterization-key
-       (unsafe-place-local-ref cell.5)
+       (unsafe-place-local-ref cell.4)
        (unsafe-place-local-set!
-        cell.6
+        cell.5
         (1/dynamic-require
          '(lib "planet/resolver.rkt")
          'planet-module-name-resolver))))))
@@ -76289,8 +76297,8 @@
          'standard-module-name-resolver
          "(or/c #f namespace?)"
          from-namespace_0))
-      (if (unsafe-place-local-ref cell.6)
-        (|#%app| (unsafe-place-local-ref cell.6) s_0)
+      (if (unsafe-place-local-ref cell.5)
+        (|#%app| (unsafe-place-local-ref cell.5) s_0)
         (void))
       (let ((hts_0
              (let ((or-part_0
@@ -76433,13 +76441,13 @@
                     (begin
                       (prep-planet-resolver!)
                       (|#%app|
-                       (unsafe-place-local-ref cell.6)
+                       (unsafe-place-local-ref cell.5)
                        s_0
                        relto_0
                        stx_0
                        load?_0
                        #f
-                       (unsafe-place-local-ref cell.5)))
+                       (unsafe-place-local-ref cell.4)))
                     (if (if (pair? s_0)
                           (if (eq? (car s_0) 'submod)
                             (if (pair? (cadr s_0))
@@ -76452,43 +76460,44 @@
                         (let ((app_0 (cadr s_0)))
                           (let ((app_1 (cddr s_0)))
                             (|#%app|
-                             (unsafe-place-local-ref cell.6)
+                             (unsafe-place-local-ref cell.5)
                              app_0
                              relto_0
                              stx_0
                              load?_0
                              app_1
-                             (unsafe-place-local-ref cell.5)))))
+                             (unsafe-place-local-ref cell.4)))))
                       (let ((get-dir_0
                              (|#%name|
                               get-dir
                               (lambda ()
                                 (let ((or-part_0
                                        (if relto_0
-                                         (if (eq?
-                                              relto_0
-                                              (unsafe-place-local-ref cell.3))
-                                           (unsafe-place-local-ref cell.4)
-                                           (let ((p_0
-                                                  (1/resolved-module-path-name
-                                                   relto_0)))
-                                             (let ((p_1
-                                                    (if (pair? p_0)
-                                                      (car p_0)
-                                                      p_0)))
-                                               (if (path? p_1)
-                                                 (call-with-values
-                                                  (lambda () (split-path p_1))
-                                                  (lambda (base_0 n_0 d?_0)
-                                                    (begin
-                                                      (unsafe-place-local-set!
-                                                       cell.3
-                                                       relto_0)
-                                                      (unsafe-place-local-set!
-                                                       cell.4
-                                                       base_0)
-                                                      base_0)))
-                                                 #f))))
+                                         (let ((prev-relto-dir_0
+                                                (unsafe-place-local-ref
+                                                 cell.3)))
+                                           (if (eq?
+                                                relto_0
+                                                (car prev-relto-dir_0))
+                                             (cdr prev-relto-dir_0)
+                                             (let ((p_0
+                                                    (1/resolved-module-path-name
+                                                     relto_0)))
+                                               (let ((p_1
+                                                      (if (pair? p_0)
+                                                        (car p_0)
+                                                        p_0)))
+                                                 (if (path? p_1)
+                                                   (call-with-values
+                                                    (lambda ()
+                                                      (split-path p_1))
+                                                    (lambda (base_0 n_0 d?_0)
+                                                      (begin
+                                                        (unsafe-place-local-set!
+                                                         cell.3
+                                                         (cons relto_0 base_0))
+                                                        base_0)))
+                                                   #f)))))
                                          #f)))
                                   (if or-part_0
                                     or-part_0
@@ -77203,10 +77212,10 @@
 (define seal
   (lambda ()
     (unsafe-place-local-set!
-     cell.5
+     cell.4
      (reparameterize (continuation-mark-set-first #f parameterization-key)))))
 (define get-original-parameterization
-  (lambda () (unsafe-place-local-ref cell.5)))
+  (lambda () (unsafe-place-local-ref cell.4)))
 (define default-current-read-interaction?
   (lambda () (eq? (current-read-interaction) default-read-interaction)))
 (define boot-primitives

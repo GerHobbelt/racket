@@ -676,7 +676,7 @@ scheme_init_unsafe_thread (Scheme_Startup_Env *env)
                                                       0, 0),
                              env);
 
-  /* Trying to acquire an uninterruptable lock similarly blocks: it's the same as
+  /* Trying to acquire an uninterruptible lock similarly blocks: it's the same as
      starting and ending atomic mode --- so consistent, though useless. */
   ADD_PRIM_W_ARITY("unsafe-make-uninterruptible-lock", unsafe_make_unint_lock, 0, 0, env);
   ADD_PRIM_W_ARITY("unsafe-uninterruptible-lock-acquire", unsafe_start_atomic, 1, 1, env);
@@ -2570,7 +2570,11 @@ static Scheme_Thread *make_thread(Scheme_Config *config,
     prefix = 1;
   }
 
+#ifdef MZ_USE_PSEUDORANDOM_FUEL
+  process->engine_weight = MZ_USE_PSEUDORANDOM_FUEL;
+#else
   process->engine_weight = 10000;
+#endif
 
   process->cont_mark_pos = (MZ_MARK_POS_TYPE)1;
   process->cont_mark_stack = 0;
@@ -3605,7 +3609,9 @@ Scheme_Object *scheme_thread_parallel(int argc, Scheme_Object *args[])
         scheme_wrong_contract(who, "(or/c #f 'own parallel-thread-pool?)", 1, argc, args);
     } else {
       if (SCHEME_INT1_VAL(args[1]) == 0)
-        scheme_contract_error(who, "parallel thread pool is closed");
+        scheme_contract_error(who, "parallel thread pool is closed",
+                              "parallel thread pool", 1, args[1],
+                              NULL);
     }
   }
   keep_results = extract_keep_results(who, 2, argc, args);
@@ -5134,7 +5140,11 @@ void scheme_thread_block(float sleep_time)
         || (do_atomic <= atomic_timeout_atomic_level)) {
       if (atomic_timeout_auto_suspend) {
         atomic_timeout_auto_suspend++;
+# ifdef MZ_USE_PSEUDORANDOM_FUEL
+        scheme_fuel_counter = (p->engine_weight >> 1) + (random() % p->engine_weight);
+# else
         scheme_fuel_counter = p->engine_weight;
+#endif
         scheme_jit_stack_boundary = scheme_stack_boundary;
       }
       call_on_atomic_timeout(0);
@@ -5229,7 +5239,11 @@ void scheme_thread_block(float sleep_time)
   if (do_atomic)
     missed_context_switch = 1;
 
+#ifdef MZ_USE_PSEUDORANDOM_FUEL
+  scheme_fuel_counter = (p->engine_weight >> 1) + (random() % p->engine_weight);
+#else
   scheme_fuel_counter = p->engine_weight;
+#endif
   scheme_jit_stack_boundary = scheme_stack_boundary;
 
   scheme_kickoff_green_thread_time_slice_timer(MZ_THREAD_QUANTUM_USEC);

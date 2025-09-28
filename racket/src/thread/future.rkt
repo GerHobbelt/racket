@@ -378,7 +378,8 @@
      (set-future*-parallel! me-f (parallel* pool th #f cells))
      (thread-init-kill-callback! th (lambda ()
                                       (future-external-stop me-f)
-                                      (thread-pool-departure pool -1)))
+                                      (unless (eq? (future*-state me-f) 'failed)
+                                        (thread-pool-departure pool -1))))
      (thread-push-suspend+resume-callbacks! (lambda () (future-external-stop me-f))
                                             (lambda () (future-external-resume me-f))
                                             th)
@@ -550,9 +551,12 @@
      #f]
     [else
      ;; the future is not blocked; suspend and get resumed if/when
-     ;; needed again
-     (lock-release (future*-lock f))
-     ((thread-deschedule! (current-thread/in-racket) #f 'future))
+     ;; needed again; make sure we deschedule while still in atomic
+     ;; mode (via the future locks' uninterruptible mode), so that
+     ;; the thread is definitely descheduled and can be reshceduled by
+     ;; the future via `wakeup-racket-thread`
+     ((thread-deschedule! #:last-step (lambda () (lock-release (future*-lock f)))
+                          (current-thread/in-racket) #f 'future))
      ;; only reason we should get rescheduled is `wakeup-racket-thread`
      ;; or (if that one is skipped by a stop request) `future-external-resume`
      (touch-blocked f)]))
@@ -676,7 +680,7 @@
       (when th
         (assert (in-future-thread?))
         (set-engine-thread-cell-state! #f)
-        (host:post-as-asynchronous-callback
+        (host:post-as-asynchronous-scheduler-callback
          (lambda ()
            ;; in atomic mode and in arbitrary Racket thread selected by scheduler
            (cond
@@ -694,8 +698,7 @@
               ;; Racket thread should be on its way back to `touch-blocked` or
               ;; already noticed the reader future; in the former case, it will
               ;; check on the future without needing to be rescheduled
-              (void)]))))
-      (wakeup-this-place))))
+              (void)])))))))
 
 ;; in atomic mode in Racket thread when an unblocking thread is killed or suspended;
 ;; the future can be in any state on entry; it ends up descheduled and not running
@@ -864,8 +867,11 @@
     (define pool (parallel*-pool (future*-parallel f)))
     (define capacity (sub1 (parallel-thread-pool-capacity pool)))
     (unless (capacity . >= . 0)
+      (set-future*-state! f 'failed)
+      (increment-place-parallel-count! -1)
       (host:mutex-release (scheduler-mutex s))
-      (raise-arguments-error 'thread/parallel "the parallel thread pool has been closed"))
+      (end-uninterruptible)
+      (raise-arguments-error 'thread "the parallel thread pool has been closed"))
     (set-parallel-thread-pool-capacity! pool capacity)
     (set-parallel-thread-pool-swimmers! pool (add1 (parallel-thread-pool-swimmers pool))))
   (define old (if front?
@@ -1162,7 +1168,9 @@
 (define (drain-async-callbacks)
   (define callbacks (host:poll-async-callbacks))
   (for ([callback (in-list callbacks)])
-    (callback)))
+    (if (box? callback)
+        ((unbox callback))
+        (callback))))
 
 ;; ----------------------------------------
 
