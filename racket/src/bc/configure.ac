@@ -241,6 +241,7 @@ if test "${enable_racket}" != "" ; then
 fi
 
 m4_include(../ac/path_pkgscope.m4)
+m4_include(../ac/pkgs_show.m4)
 
 m4_include(../ac/crossany.m4)
 
@@ -280,6 +281,8 @@ OWN_LIBFFI="ON"
 
 ar_libtool_no_undefined=""
 LIBRACKET_DEP=""
+
+dist_install_missing_pkgs=no
 
 EXE_SUFFIX=
 SO_SUFFIX=.so
@@ -616,6 +619,8 @@ case "$host_os" in
     mzrt_needs_pthread=no
     use_flag_pthread=no
     skip_curses_check=yes
+    dist_install_missing_pkgs=yes
+    update_guibin_default_as_root
     MZOPTIONS="$MZOPTIONS -fno-omit-frame-pointer" # to make JIT backtraces work
     MINGW="t"
     WXVARIANT="wx_win"
@@ -719,6 +724,8 @@ case "$host_os" in
       if test "${enable_libs}" = "" ; then
         INSTALL_LIBS_ENABLE=no-install
       fi
+      dist_install_missing_pkgs=yes
+      update_guibin_default_as_root
     else
       PREFLAGS="$PREFLAGS -DXONX "
       LIBS="$LIBS -framework CoreFoundation"
@@ -1227,6 +1234,15 @@ fi
 
 if test "${enable_natipkg}" = "yes" ; then
   AC_DEFINE(SPLS_SUFFIX,"-natipkg",[Library subpath suffix])
+  dist_install_missing_pkgs=yes
+fi
+if test "${enable_nonatipkg}" = "yes" ; then
+  if test "${enable_natipkg}" = "yes" ; then
+     echo 'cannot specify both `--enable-natipkg` and `--enable-nonatipkg`'
+     exit 1
+  fi
+  AC_DEFINE(SPLS_SUFFIX,"-nonatipkg",[Library subpath suffix])
+  dist_install_missing_pkgs=no
 fi
 
 ############## Racket for Racket ################
@@ -1327,6 +1343,10 @@ fi
 if test "${enable_werror}" = "yes"; then
   CFLAGS="-Werror ${CFLAGS}"
 fi
+
+############## packages ################
+
+m4_include(../ac/pkgs.m4)
 
 ############## subconfigures ################
 
@@ -1480,6 +1500,10 @@ AC_SUBST(INSTALL_NAME_TOOL)
 
 AC_SUBST(LIBFFI_CONFIGURE_ARGS)
 AC_SUBST(RKTIO_CONFIGURE_ARGS)
+
+AC_SUBST(INSTALL_PKGS)
+AC_SUBST(INSTALL_MISSING_PKGS)
+AC_SUBST(INSTALL_PKG_CATALOG)
 
 AC_SUBST(CC_FOR_BUILD)
 AC_SUBST(CFLAGS_FOR_BUILD)

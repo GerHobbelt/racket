@@ -625,6 +625,9 @@ LIBOBJS
 upsrcdir
 CFLAGS_FOR_BUILD
 CC_FOR_BUILD
+INSTALL_PKG_CATALOG
+INSTALL_MISSING_PKGS
+INSTALL_PKGS
 RKTIO_CONFIGURE_ARGS
 LIBFFI_CONFIGURE_ARGS
 INSTALL_NAME_TOOL
@@ -736,6 +739,7 @@ CONFIG_PATH
 GR_APP_COLLECTS_PATH
 GUI_COLLECTS_PATH
 COLLECTS_PATH
+guibindir
 pkgsdir
 includepltdir
 etcpltdir
@@ -782,7 +786,7 @@ sysconfdir
 datadir
 datarootdir
 libexecdir
-sbindir
+guibindir
 bindir
 program_transform_name
 prefix
@@ -896,7 +900,7 @@ x_libraries=NONE
 # Use braces instead of parens because sh, perl, etc. also accept them.
 # (The list follows the same order as the GNU Coding Standards.)
 bindir='${exec_prefix}/bin'
-sbindir='${exec_prefix}/sbin'
+guibindir='${bindir}'
 libexecdir='${exec_prefix}/libexec'
 datarootdir='${prefix}/share'
 datadir='${datarootdir}'
@@ -1182,11 +1186,11 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
-  -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
-    ac_prev=sbindir ;;
-  -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
+  -guibindir | --guibindir | --guibindi | --guibind | --guibin | --sbi | --sb)
+    ac_prev=guibindir ;;
+  -guibindir=* | --guibindir=* | --guibindi=* | --guibind=* | --guibin=* \
   | --sbi=* | --sb=*)
-    sbindir=$ac_optarg ;;
+    guibindir=$ac_optarg ;;
 
   -sharedstatedir | --sharedstatedir | --sharedstatedi \
   | --sharedstated | --sharedstate | --sharedstat | --sharedsta \
@@ -1316,7 +1320,7 @@ if test -n "$ac_unrecognized_opts"; then
 fi
 
 # Check all directory arguments for consistency.
-for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
+for ac_var in	exec_prefix prefix bindir guibindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir collectsdir appsdir psdir \
 		libdir appsdir mandir
@@ -1468,6 +1472,7 @@ For better control, use the options below.
 
 Fine tuning of the installation directories:
   --bindir=DIR            user executables [EPREFIX/bin]
+  --guibindir=DIR         GUI programs [BINDIR]
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
@@ -1514,6 +1519,7 @@ Optional Features:
   --enable-usersetup      setup user-specific files on install
   --enable-portable       prefer portable to host-specific
   --enable-natipkg        add "-natipkg" to library subpath
+  --enable-nonatipkg      add "-nonatipkg" to library subpath
   --enable-shared         create shared libraries (ok, but not recommended)
   --enable-dynlib         same as --enable-shared
   --enable-lt=<prog>      use <prog> instead of libtool; disable to use bundled
@@ -2771,6 +2777,11 @@ if test "${enable_natipkg+set}" = set; then :
   enableval=$enable_natipkg;
 fi
 
+# Check whether --enable-natipkg was given.
+if test "${enable_natipkg+set}" = set; then :
+  enableval=$enable_natipkg;
+fi
+
 
 
 # Check whether --enable-shared was given.
@@ -3149,6 +3160,9 @@ if test "${enable_origtree}" != "yes" -a "${enable_useprefix}" != "no" ; then
   if test "${bindir}" != '${exec_prefix}/bin' ; then
    unixstyle=yes
   fi
+  if test "${guibindir}" != '${bindir}' ; then
+   unixstyle=yes
+  fi
   if test "${datadir}" != '${prefix}/share' ; then
    # Newer autoconf uses datarootdir:
    if test "${datadir}" = '${datarootdir}' ; then
@@ -3190,6 +3204,13 @@ if test "${enable_origtree}" != "yes" -a "${enable_useprefix}" != "no" ; then
   fi
 fi
 
+update_guibin_default_as_root()
+{
+  if test "${guibindir_is_default}" = "yes" ; then
+     guibindir='${prefix}'
+  fi
+}
+
 MAKE_COPYTREE=no
 if test "${unixstyle}" = "no" ; then
   if test "${enable_useprefix}" = "no" -o "${prefix}" = "NONE" ; then
@@ -3199,6 +3220,8 @@ if test "${unixstyle}" = "no" ; then
     MAKE_COPYTREE=copytree
   fi
   bindir='${prefix}/bin'
+  guibindir='${bindir}'
+  guibindir_is_default=yes
   libpltdir='${prefix}/lib'
   libpltdir_rel='lib'
   sharepltdir='${prefix}/share'
@@ -3285,6 +3308,7 @@ GUI_CONFIG_PATH="${CONFIG_PATH}"
 
 
 
+
 ########################################
 
 show_path_results()
@@ -3305,6 +3329,7 @@ show_path_results()
   else
     echo ">>> Installation targets:"
     echo " executables        : ${bindir}/..."
+    echo " GUI executables    : ${guibindir}/..."
     echo " core docs          : ${docdir}/..."
     echo " C libraries        : ${libdir}/..."
     echo " C headers          : ${includepltdir}/..."
@@ -3317,13 +3342,14 @@ show_path_results()
     echo " man pages          : ${mandir}/..."
     echo "     where prefix = ${prefix}"
     echo "  and datarootdir = ${datarootdir}"
+    echo "  and datadir = ${datadir}"
+    echo "  and bindir = ${bindir}"
     if test "${unixstyle}" = "yes" ; then
       echo "  and exec_prefix = ${exec_prefix}"
       echo "  and PACKAGE = racket"
     fi
   fi
 }
-
 
 
 ###### Make sure GRacket is really there ######
@@ -3414,6 +3440,7 @@ show_explicitly_enabled "${enable_usersetup}" "User-specific setup on install"
 show_explicitly_enabled "${enable_portable}" "portable"
 
 show_explicitly_enabled "${enable_natipkg}" "Adding \"-natipkg\" suffix to library subpath"
+show_explicitly_enabled "${enable_nonatipkg}" "Adding \"-nonatipkg\" suffix to library subpath"
 
 
 show_explicitly_enabled "${enable_xonx}" "Unix style"
@@ -3555,6 +3582,24 @@ fi
 
 
 
+show_pkg_catalog="no"
+
+if test "$enable_pkgs" != ""  ; then
+  echo "=== Adding extra packages on install: $enable_pkgs"
+  show_pkg_catalog="yes"
+fi
+
+if test "$enable_missingpkgs" == "yes"  ; then
+  echo "=== Adding any missing package dependencies on install"
+  show_pkg_catalog="yes"
+fi
+
+if test "$show_pkg_catalog" != ""  ; then
+  if test "$enable_catalog" != "" ; then
+    echo "=== Installing packages from: $enable_catalog"
+  fi
+fi
+
 
 show_explicitly_enabled "${enable_crossany}" "Own cross-compile target as machine-independent"
 
@@ -3600,6 +3645,8 @@ OWN_LIBFFI="ON"
 
 ar_libtool_no_undefined=""
 LIBRACKET_DEP=""
+
+dist_install_missing_pkgs=no
 
 EXE_SUFFIX=
 SO_SUFFIX=.so
@@ -5174,6 +5221,8 @@ case "$host_os" in
     mzrt_needs_pthread=no
     use_flag_pthread=no
     skip_curses_check=yes
+    dist_install_missing_pkgs=yes
+    update_guibin_default_as_root
     MZOPTIONS="$MZOPTIONS -fno-omit-frame-pointer" # to make JIT backtraces work
     MINGW="t"
     WXVARIANT="wx_win"
@@ -5366,6 +5415,8 @@ $as_echo "#define HAVE_STDINT_H 1" >>confdefs.h
       if test "${enable_libs}" = "" ; then
         INSTALL_LIBS_ENABLE=no-install
       fi
+      dist_install_missing_pkgs=yes
+      update_guibin_default_as_root
     else
       PREFLAGS="$PREFLAGS -DXONX "
       LIBS="$LIBS -framework CoreFoundation"
@@ -7364,6 +7415,17 @@ if test "${enable_natipkg}" = "yes" ; then
 
 $as_echo "#define SPLS_SUFFIX \"-natipkg\"" >>confdefs.h
 
+  dist_install_missing_pkgs=yes
+fi
+if test "${enable_nonatipkg}" = "yes" ; then
+  if test "${enable_natipkg}" = "yes" ; then
+     echo 'cannot specify both `--enable-natipkg` and `--enable-nonatipkg`'
+     exit 1
+  fi
+
+$as_echo "#define SPLS_SUFFIX \"-nonatipkg\"" >>confdefs.h
+
+  dist_install_missing_pkgs=no
 fi
 
 ############## Racket for Racket ################
@@ -7465,6 +7527,20 @@ if test "${enable_werror}" = "yes"; then
   CFLAGS="-Werror ${CFLAGS}"
 fi
 
+############## packages ################
+
+INSTALL_PKGS="$enable_pkgs"
+INSTALL_PKG_CATALOG="$enable_catalog"
+
+if test "$enable_missingpkgs" = "" ; then
+  if test "$dist_install_missing_pkgs" = "yes" ; then
+    INSTALL_MISSING_PKGS="dist"
+  fi
+else
+  INSTALL_MISSING_PKGS="$enable_missingpkgs"
+fi
+
+
 ############## subconfigures ################
 
 # Make sure the --enable-shared default is propagated:
@@ -7509,7 +7585,7 @@ do
   # Strip away all feature choices
   -enable* | --enable* | -disable* | --disable*)
     ;;
-  -collects* | --collects* | -apps* | --apps* | -pkgs* | --pkgs*)
+  -collects* | --collects* | -apps* | --apps* | -pkgs* | --pkgs* | -guibin*  | --guibin*)
     ;;
   *)
     case $fixup_arg in
@@ -7535,6 +7611,10 @@ case "$srcdir" in
 esac
 
 LIBS="$LIBS $EXTRALIBS"
+
+
+
+
 
 
 

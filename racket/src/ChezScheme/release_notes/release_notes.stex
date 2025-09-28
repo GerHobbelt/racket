@@ -1,9 +1,9 @@
 \documentclass{releasenotes}
 
-\thisversion{Version 10.2.0}
+\thisversion{Version 10.3.0}
 \thatversion{Version 8.4}
-\pubmonth{November}
-\pubyear{2024}
+\pubmonth{May}
+\pubyear{2025}
 
 \iflatex
 \usepackage{enumitem}
@@ -47,7 +47,7 @@ procedure) is given in parentheses.
      \item x86, nonthreaded (i3osx) and threaded (ti3osx)
      \item x86\_64, nonthreaded (a6osx) and threaded (ta6osx)
      \item AArch64, nonthreaded (arm64osx) and threaded (tarm64osx)
-     \item PowerPC (32-bit) (ppc2osx) and threaded (tppc32osx)
+     \item PowerPC (32-bit) (ppc32osx) and threaded (tppc32osx)
      \end{itemizeC}
 \item Windows
      \begin{itemizeC}
@@ -115,6 +115,35 @@ Online versions of both books can be found at
 
 %-----------------------------------------------------------------------------
 \section{Functionality Changes}\label{section:functionality}
+
+\subsection{Support for setting the default history file location using the \scheme{CHEZSCHEME_HISTORY environment variable}}
+
+If the environment variable \scheme{CHEZSCHEME_HISTORY} is set during
+startup, and the \scheme{--eehistory} command-line option isn't used,
+the value of said environment variable will determine the history file
+location that will be used.
+
+\subsection{Type recovery improvements (10.3.0)}
+
+The type recovery pass has improved support for \scheme{cfl+} and
+similar functions.
+
+\subsection{Unicode 16.0.0 support (10.3.0)}
+
+The character sets, character classes, and word-breaking algorithms for character, string,
+and Unicode-related bytevector operations have now been updated to Unicode 16.0.0.
+
+\subsection{Improved \scheme{expt} on a flonum and a large exact power (10.3.0)}
+
+The \scheme{expt} function produces a more accurate result when its
+first argument is a flonum and its second argument is an exact integer
+that has no equivalent flonum representation.
+
+\subsection{Command-line options \scheme{--version} and \scheme{--help} write to stdout
+(10.2.0)}
+
+Calling \scheme{scheme} or \scheme{petite} with \scheme{--version} or \scheme{--help} now
+writes output to stdout, not stderr.
 
 \subsection{Efficient in-place fxvector and flvector copying (10.2.0)}
 
@@ -2833,6 +2862,13 @@ correctly when expressions are evaluated in the various continuations
 specified by the \scheme{guard} form.  Necessary fixes to uses of
 \scheme{call-in-continuation} have been applied in the implementation.
 
+\subsection{Treat \scheme{#} as a delimiter when reading numbers in R$^6$RS mode}
+
+A bug in the reader didn't treat the character \scheme{#} as a
+delimiter when reading numbers. In R$^6$RS, a string like
+\scheme{"3#f"} has to be read as two tokens, \scheme{3} and
+\scheme{#f}.
+
 \subsection{Fix \scheme{fx-/wraparound} with \scheme{0} first argument (10.2.0)}
 
 When \scheme{fx-/wraparound} was called with \scheme{0} as its first
@@ -2859,6 +2895,11 @@ functions.
 An incorrect approach to finding the current executable's path on
 NetBSD meant that boot files could not be found relative to the
 executable.
+
+\subsection{Invalid memory access in \scheme{path-build} (10.2.0)}
+
+When the \scheme{dir-path} argument is the empty string, the \scheme{path-build}
+procedure now returns the \scheme{path} argument instead of performing an invalid memory access.
 
 \subsection{Incorrect assembly code for threaded ARMv5 and earlier (10.1.0)}
 

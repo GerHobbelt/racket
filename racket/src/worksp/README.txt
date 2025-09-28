@@ -2,32 +2,6 @@ This directory contains scripts, resources, and other Windows-specific
 content for a Racket build.
 
 ========================================================================
- Building from a Source Distribution
-========================================================================
-
-If you are building from a source distribution (as opposed to a Git
-repository checkout), then beware that a regular/full Racket
-distribution will not build correctly. A regular source distribution
-is intended for Unix platforms, and it does not include native
-libraries that are needed on Windows. You should start with a source
-distribution that is labelled "Minimal Racket", instead.
-
-When building from a minimal Racket source distribution, then most
-likely "racket-lib" is already included and installed as part of the
-the distribution, but without Windows-specific dependencies of
-"racket-lib". After following steps below to build and install,
-complete the build (in the "src" parent directory of "worksp") with
-
-   ..\raco pkg update --auto racket-lib
-
-If your goal is to arrive at the same content as a regular Racket
-distribution, then after building and installing minimal Racket,
-finish with
-
-   ..\raco pkg install -i main-distribution
-
-
-========================================================================
  Building from the Command Line via Visual Studio
 ========================================================================
 
@@ -106,14 +80,16 @@ will be needed to build and install BC.
 Completing the Build
 --------------------
 
-The build scripts for Racket do not install support DLLs for encoding
-conversion, extflonums (in BC), and OpenSLL. To install those
-libraries, finish with
+If you are building from a source distribution (as opposed to a Git
+repository checkout), then beware that the distribution does not
+include native libraries that are needed on Windows. The install step
+will fetch missing packages.
+
+With a Git repository checkout, the build scripts for Racket do not
+install support DLLs for encoding conversion, extflonums (in BC), and
+OpenSLL. To install those libraries, finish with
 
    ..\raco pkg install racket-lib
-
-If you are building from a source distribution (as opposed to a Git
-repository checkout), see "Building from a Source Distribution" above.
 
 Only if you are starting completely from scratch, see also
 "..\..\native-lib\README.txt".
