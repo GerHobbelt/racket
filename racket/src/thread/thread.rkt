@@ -932,7 +932,9 @@
      (thread-did-work!)]
     [else (thread-poll-done! (current-thread/in-racket))])
    (set-thread-sched-info! (current-thread/in-racket) sched-info))
-  (thread-engine-block))
+  (if sched-info
+      (engine-block) ; no barrier exit
+      (thread-engine-block)))
 
 ;; Sleep for a while
 (define/who (sleep [secs 0])
@@ -1214,12 +1216,14 @@
        (lambda () #f)]))))
 
 (define (thread-receive)
-  ((atomically
+  ((atomically/no-barrier-exit
     (define t (current-thread/in-racket))
     (cond
       [(is-mail? t)
        (define v (dequeue-mail! t))
-       (lambda () v)]
+       (lambda ()
+         (future-barrier-exit)
+         v)]
       [else
        ;; The current wakeup callback must be `void`, since this thread
        ;; can't be in the middle of a `sync` (unless interrupted by a break)
@@ -1237,7 +1241,7 @@
        (lambda ()
          (do-yield)
          (thread-receive))]))))
- 
+
 (define (thread-try-receive)
   (atomically
    (define t (current-thread/in-racket))

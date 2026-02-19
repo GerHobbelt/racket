@@ -8130,7 +8130,7 @@
             (thread-poll-done! (current-thread/in-racket)))
           (set-thread-sched-info! (current-thread/in-racket) sched-info_0))
         (end-atomic/no-barrier-exit))
-      (thread-engine-block))))
+      (if sched-info_0 (engine-block) (thread-engine-block)))))
 (define 1/sleep
   (let ((sleep_0
          (|#%name|
@@ -8471,7 +8471,8 @@
         (begin0
           (let ((t_0 (current-thread/in-racket)))
             (if (is-mail? t_0)
-              (let ((v_0 (dequeue-mail! t_0))) (lambda () v_0))
+              (let ((v_0 (dequeue-mail! t_0)))
+                (lambda () (begin (future-barrier-exit) v_0)))
               (begin
                 (set-thread-mailbox-wakeup!
                  t_0
@@ -8483,7 +8484,7 @@
                          (thread-deschedule!.1 void t_0 #f temp96_0)))
                     (lambda ()
                       (begin (|#%app| do-yield_0) (1/thread-receive))))))))
-          (end-atomic)))))))
+          (end-atomic/no-barrier-exit)))))))
 (define 1/thread-try-receive
   (|#%name|
    thread-try-receive
@@ -9980,7 +9981,9 @@
                                                  (if (procedure? timeout10_0)
                                                    (if thunk-result?38_0
                                                      timeout10_0
-                                                     (|#%app| timeout10_0))
+                                                     (begin
+                                                       (future-barrier-exit)
+                                                       (|#%app| timeout10_0)))
                                                    (if thunk-result?38_0
                                                      (lambda () #f)
                                                      #f))))))
@@ -10089,15 +10092,19 @@
                      (|#%app| thunk_0)))
                  (let ((temp52_0
                         (lambda (sched-info_0 polled-all?_0 no-wrappers?_0)
-                          (if polled-all?_0
-                            (if (if (real? timeout10_0) (zero? timeout10_0) #f)
-                              #f
-                              (if (procedure? timeout10_0)
-                                (|#%app| timeout10_0)
-                                (if no-wrappers?_0
-                                  (go_0 #f)
-                                  (|#%app| (go_0 #t)))))
-                            (|#%app| (go_0 #t))))))
+                          (begin
+                            (future-barrier-exit)
+                            (if polled-all?_0
+                              (if (if (real? timeout10_0)
+                                    (zero? timeout10_0)
+                                    #f)
+                                #f
+                                (if (procedure? timeout10_0)
+                                  (|#%app| timeout10_0)
+                                  (if no-wrappers?_0
+                                    (go_0 #f)
+                                    (|#%app| (go_0 #t)))))
+                              (|#%app| (go_0 #t)))))))
                    (sync-poll.1
                     #f
                     #t
@@ -10370,7 +10377,7 @@
                              #f)
                          (syncing-done! s32_0 none-syncer)
                          (void))
-                       (end-atomic)
+                       (end-atomic/no-barrier-exit)
                        (|#%app|
                         fail-k18_0
                         sched-info_0
@@ -10379,11 +10386,11 @@
                      (if (= retries_0 10)
                        (begin
                          (set-schedule-info-did-work?! sched-info_0 #t)
-                         (end-atomic)
+                         (end-atomic/no-barrier-exit)
                          (loop_0 (syncer-next sr_0) 0 #f #f))
                        (if (nested-sync-evt? (syncer-evt sr_0))
                          (begin
-                           (end-atomic)
+                           (end-atomic/no-barrier-exit)
                            (call-with-values
                             (lambda ()
                               (poll-nested-sync
@@ -10400,10 +10407,13 @@
                                  no-wrappers?_0)
                                 (begin
                                   (start-atomic)
-                                  (if (syncing-selected s32_0)
-                                    (void)
-                                    (set-syncer-evt! sr_0 new-evt_0))
-                                  (end-atomic)
+                                  (begin0
+                                    (begin
+                                      (if (syncing-selected s32_0)
+                                        (void)
+                                        (set-syncer-evt! sr_0 new-evt_0))
+                                      (void))
+                                    (end-atomic/no-barrier-exit))
                                   (if fast-only?21_0
                                     (|#%app| fail-k18_0 sched-info_0 #f #f)
                                     (loop_0
@@ -10426,7 +10436,7 @@
                                   (make-result sr_0 results_0 success-k19_0))
                                 (if (delayed-poll? new-evt_0)
                                   (begin
-                                    (end-atomic)
+                                    (end-atomic/no-barrier-exit)
                                     (if fast-only?21_0
                                       (|#%app| fail-k18_0 sched-info_0 #f #f)
                                       (let ((new-evt_1
@@ -10435,10 +10445,15 @@
                                                new-evt_0))))
                                         (begin
                                           (start-atomic)
-                                          (if (syncing-selected s32_0)
-                                            (void)
-                                            (set-syncer-evt! sr_0 new-evt_1))
-                                          (end-atomic)
+                                          (begin0
+                                            (begin
+                                              (if (syncing-selected s32_0)
+                                                (void)
+                                                (set-syncer-evt!
+                                                 sr_0
+                                                 new-evt_1))
+                                              (void))
+                                            (end-atomic/no-barrier-exit))
                                           (loop_0
                                            sr_0
                                            (add1 retries_0)
@@ -10477,7 +10492,7 @@
                                         (if (not new-syncers_0)
                                           (begin
                                             (syncer-remove! sr_0 s32_0)
-                                            (end-atomic)
+                                            (end-atomic/no-barrier-exit)
                                             (loop_0
                                              (syncer-next sr_0)
                                              0
@@ -10488,7 +10503,7 @@
                                              sr_0
                                              new-syncers_0
                                              s32_0)
-                                            (end-atomic)
+                                            (end-atomic/no-barrier-exit)
                                             (loop_0
                                              new-syncers_0
                                              (add1 retries_0)
@@ -10525,7 +10540,7 @@
                                                  (list the-always-evt)
                                                  success-k19_0))
                                               (begin
-                                                (end-atomic)
+                                                (end-atomic/no-barrier-exit)
                                                 (loop_0
                                                  sr_0
                                                  (add1 retries_0)
@@ -10600,7 +10615,7 @@
                                                    sr_0
                                                    (control-state-evt-evt
                                                     new-evt_0))
-                                                  (end-atomic)
+                                                  (end-atomic/no-barrier-exit)
                                                   (if (if fast-only?21_0
                                                         (not
                                                          (if (eq?
@@ -10627,7 +10642,7 @@
                                                      no-wrappers?_0)))))))
                                         (if (poll-guard-evt? new-evt_0)
                                           (begin
-                                            (end-atomic)
+                                            (end-atomic/no-barrier-exit)
                                             (if fast-only?21_0
                                               (|#%app|
                                                fail-k18_0
@@ -10672,7 +10687,7 @@
                                                 #f)
                                             (begin
                                               (syncer-remove! sr_0 s32_0)
-                                              (end-atomic)
+                                              (end-atomic/no-barrier-exit)
                                               (loop_0
                                                (syncer-next sr_0)
                                                0
@@ -10686,7 +10701,7 @@
                                                     ctx_0))
                                                   #f)
                                               (begin
-                                                (end-atomic)
+                                                (end-atomic/no-barrier-exit)
                                                 (loop_0
                                                  (syncer-next sr_0)
                                                  0
@@ -10696,7 +10711,7 @@
                                                 (set-syncer-evt!
                                                  sr_0
                                                  new-evt_0)
-                                                (end-atomic)
+                                                (end-atomic/no-barrier-exit)
                                                 (loop_0
                                                  sr_0
                                                  (add1 retries_0)
@@ -10870,7 +10885,7 @@
                       #f)
                     #f)))))))
          (loop_0 (syncing-syncers s_0)))
-        (end-atomic)))))
+        (end-atomic/no-barrier-exit)))))
 (define nested-syncings
   (lambda (s_0 orig-s_0)
     (letrec*
@@ -12729,7 +12744,7 @@
                me-f_0
                (if (if (future*-parallel me-f_0) (in-future-thread?) #f)
                  (lambda () (call-in-continuation k_0 1/check-for-break))
-                 k_0))
+                 (lambda () (|#%app| k_0 (void)))))
               (|#%app|
                host:internal-error
                "attempting to suspend a future in uninterruptible mode"))
