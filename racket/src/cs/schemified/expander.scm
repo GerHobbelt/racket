@@ -505,7 +505,7 @@
    '7))
 (define kw1701 (string->keyword "realm"))
 (define kw2160 (string->keyword "flatten-requires"))
-(define kws2144
+(define kws2866
   (cons
    (string->keyword "cross-phase-persistent")
    (cons
@@ -513,7 +513,7 @@
     (cons
      (string->keyword "unsafe")
      (cons
-      (string->keyword "unlimited-require")
+      (string->keyword "unlimited-compile")
       (cons
        (string->keyword "realm")
        (cons
@@ -6806,16 +6806,16 @@
   (lambda (small-ht_0 key_0 val_0)
     (set-box! small-ht_0 (hash-set (unbox small-ht_0) key_0 val_0))))
 (define small-hash-keys (lambda (small-ht_0) (hash-keys (unbox small-ht_0))))
-(define finish_2578
+(define finish_1890
   (make-struct-type-install-properties
    '(serialize-state)
-   17
+   18
    0
    #f
    (list (cons prop:authentic #t))
    (current-inspector)
    #f
-   '(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+   '(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
    #f
    'serialize-state))
 (define struct:serialize-state
@@ -6825,8 +6825,8 @@
    (|#%nongenerative-uid| serialize-state)
    #f
    #f
-   '(17 . 0)))
-(define effect_2707 (finish_2578 struct:serialize-state))
+   '(18 . 0)))
+(define effect_2707 (finish_1890 struct:serialize-state))
 (define serialize-state1.1
   (|#%name|
    serialize-state
@@ -6842,62 +6842,66 @@
   (|#%name|
    serialize-state-implicitly-reachable-scopes
    (record-accessor struct:serialize-state 1)))
+(define serialize-state-all-reachable-scopes
+  (|#%name|
+   serialize-state-all-reachable-scopes
+   (record-accessor struct:serialize-state 2)))
 (define serialize-state-bindings-intern
   (|#%name|
    serialize-state-bindings-intern
-   (record-accessor struct:serialize-state 2)))
+   (record-accessor struct:serialize-state 3)))
 (define serialize-state-bulk-bindings-intern
   (|#%name|
    serialize-state-bulk-bindings-intern
-   (record-accessor struct:serialize-state 3)))
+   (record-accessor struct:serialize-state 4)))
 (define serialize-state-scopes
-  (|#%name| serialize-state-scopes (record-accessor struct:serialize-state 4)))
+  (|#%name| serialize-state-scopes (record-accessor struct:serialize-state 5)))
 (define serialize-state-shifted-multi-scopes
   (|#%name|
    serialize-state-shifted-multi-scopes
-   (record-accessor struct:serialize-state 5)))
+   (record-accessor struct:serialize-state 6)))
 (define serialize-state-multi-scope-tables
   (|#%name|
    serialize-state-multi-scope-tables
-   (record-accessor struct:serialize-state 6)))
+   (record-accessor struct:serialize-state 7)))
 (define serialize-state-mpi-shifts
   (|#%name|
    serialize-state-mpi-shifts
-   (record-accessor struct:serialize-state 7)))
+   (record-accessor struct:serialize-state 8)))
 (define serialize-state-drop-shifts?
   (|#%name|
    serialize-state-drop-shifts?
-   (record-accessor struct:serialize-state 8)))
+   (record-accessor struct:serialize-state 9)))
 (define serialize-state-context-triples
   (|#%name|
    serialize-state-context-triples
-   (record-accessor struct:serialize-state 9)))
+   (record-accessor struct:serialize-state 10)))
 (define serialize-state-props
-  (|#%name| serialize-state-props (record-accessor struct:serialize-state 10)))
+  (|#%name| serialize-state-props (record-accessor struct:serialize-state 11)))
 (define serialize-state-interned-props
   (|#%name|
    serialize-state-interned-props
-   (record-accessor struct:serialize-state 11)))
+   (record-accessor struct:serialize-state 12)))
 (define serialize-state-syntax-context
   (|#%name|
    serialize-state-syntax-context
-   (record-accessor struct:serialize-state 12)))
+   (record-accessor struct:serialize-state 13)))
 (define serialize-state-sharing-syntaxes
   (|#%name|
    serialize-state-sharing-syntaxes
-   (record-accessor struct:serialize-state 13)))
+   (record-accessor struct:serialize-state 14)))
 (define serialize-state-preserve-prop-keys
   (|#%name|
    serialize-state-preserve-prop-keys
-   (record-accessor struct:serialize-state 14)))
+   (record-accessor struct:serialize-state 15)))
 (define serialize-state-keep-provides?
   (|#%name|
    serialize-state-keep-provides?
-   (record-accessor struct:serialize-state 15)))
+   (record-accessor struct:serialize-state 16)))
 (define serialize-state-map-binding-symbol
   (|#%name|
    serialize-state-map-binding-symbol
-   (record-accessor struct:serialize-state 16)))
+   (record-accessor struct:serialize-state 17)))
 (define make-serialize-state
   (lambda (reachable-scopes_0
            implicitly-reachable-scopes_0
@@ -6906,34 +6910,39 @@
            drop-shifts?_0
            map-binding-symbol_0)
     (let ((state_0
-           (let ((app_0 (make-hasheq)))
+           (let ((app_0
+                  (set-union
+                   reachable-scopes_0
+                   implicitly-reachable-scopes_0)))
              (let ((app_1 (make-hasheq)))
-               (let ((app_2 (make-hash)))
+               (let ((app_2 (make-hasheq)))
                  (let ((app_3 (make-hash)))
-                   (let ((app_4 (make-hasheq)))
+                   (let ((app_4 (make-hash)))
                      (let ((app_5 (make-hasheq)))
                        (let ((app_6 (make-hasheq)))
                          (let ((app_7 (make-hasheq)))
-                           (let ((app_8 (make-hash)))
-                             (let ((app_9 (box null)))
-                               (serialize-state1.1
-                                reachable-scopes_0
-                                implicitly-reachable-scopes_0
-                                app_0
-                                app_1
-                                app_2
-                                app_3
-                                app_4
-                                app_5
-                                drop-shifts?_0
-                                app_6
-                                app_7
-                                app_8
-                                app_9
-                                (make-hasheq)
-                                preserve-prop-keys_0
-                                keep-provides?_0
-                                map-binding-symbol_0)))))))))))))
+                           (let ((app_8 (make-hasheq)))
+                             (let ((app_9 (make-hash)))
+                               (let ((app_10 (box null)))
+                                 (serialize-state1.1
+                                  reachable-scopes_0
+                                  implicitly-reachable-scopes_0
+                                  app_0
+                                  app_1
+                                  app_2
+                                  app_3
+                                  app_4
+                                  app_5
+                                  app_6
+                                  drop-shifts?_0
+                                  app_7
+                                  app_8
+                                  app_9
+                                  app_10
+                                  (make-hasheq)
+                                  preserve-prop-keys_0
+                                  keep-provides?_0
+                                  map-binding-symbol_0))))))))))))))
       (let ((empty-seteq_0 (seteq)))
         (begin
           (hash-set!
@@ -9692,7 +9701,8 @@
            (hash-ref (serialize-state-bindings-intern state_0) bt_0 #f)))
       (if or-part_0
         or-part_0
-        (let ((reachable-scopes_0 (serialize-state-reachable-scopes state_0)))
+        (let ((reachable-scopes_0
+               (serialize-state-all-reachable-scopes state_0)))
           (let ((table_0 hash2610))
             (let ((new-syms_0
                    (let ((table_1 table_0))
@@ -19208,7 +19218,7 @@
                   (lambda (s_0) (error "bad syntax:" s_0)))))
             (lambda (t_0) v_0))))))))
 (define 1/make-set!-transformer
-  (let ((finish906
+  (let ((finish907
          (make-struct-type-install-properties
           '(set!-transformer)
           1
@@ -19228,7 +19238,7 @@
             #f
             #f
             '(1 . 0))))
-      (let ((effect907 (finish906 struct:set!-transformer_0)))
+      (let ((effect908 (finish907 struct:set!-transformer_0)))
         (let ((set!-transformer1_0
                (|#%name|
                 set!-transformer
@@ -20658,6 +20668,9 @@
                                                                                                                                             app_1
                                                                                                                                             'match?
                                                                                                                                             app_2
+                                                                                                                                            'via
+                                                                                                                                            (scope-id
+                                                                                                                                             sc_0)
                                                                                                                                             app_3
                                                                                                                                             (extract-binding_0
                                                                                                                                              b_0))))))
@@ -91062,7 +91075,7 @@
                                                                                       (if (memq
                                                                                            (syntax-e$1
                                                                                             kw_0)
-                                                                                           kws2144)
+                                                                                           kws2866)
                                                                                         (void)
                                                                                         (raise-syntax-error$1
                                                                                          #f

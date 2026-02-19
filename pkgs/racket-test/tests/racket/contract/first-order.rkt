@@ -40,12 +40,34 @@
   (ctest #t contract-first-order-passes? 
          (->* (integer?) () #:rest any/c (values char? any/c))
          (λ x #f))
+  (ctest #f contract-first-order-passes?
+         (->* (integer?) (symbol? boolean?) number?)
+         (lambda (x [y 'a]) x))
 
   (ctest #t contract-first-order-passes? (->d ((z any/c)) () (result any/c)) (λ (x) x))
   (ctest #f contract-first-order-passes? (->d ((z any/c)) () (result any/c)) (λ (x y) x))
 
   (ctest #t contract-first-order-passes? (->i ((z any/c)) () (result any/c)) (λ (x) x))
   (ctest #f contract-first-order-passes? (->i ((z any/c)) () (result any/c)) (λ (x y) x))
+
+  (ctest #f contract-first-order-passes?
+         (case-> (-> integer? integer?)
+                 (-> integer? integer? integer?))
+         "wrong")
+  (ctest #f contract-first-order-passes?
+         (case-> (-> integer? integer?)
+                 (-> integer? integer? integer?))
+         (λ (x) x))
+  (ctest #t contract-first-order-passes?
+         (case-> (-> integer? integer?)
+                 (-> integer? integer? integer?))
+         (λ args args))
+  (ctest #t contract-first-order-passes?
+         (case-> (-> integer? integer?)
+                 (-> integer? integer? integer?))
+         (case-lambda
+           [(x) x]
+           [(x y) x]))
 
   (ctest #t contract-first-order-passes? (listof integer?) (list 1))
   (ctest #f contract-first-order-passes? (listof integer?) #f)

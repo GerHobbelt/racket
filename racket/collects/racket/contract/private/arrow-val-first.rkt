@@ -24,6 +24,7 @@ plus1 arg list construction: build-plus-one-arity-function/real
          "arrow-collapsible.rkt"
          "collapsible-common.rkt"
          "list.rkt"
+         "arity-checking.rkt"
          racket/stxparam)
 
 (provide (rename-out [->/c ->]) ->*
@@ -91,6 +92,13 @@ plus1 arg list construction: build-plus-one-arity-function/real
             [failed/args failure ...]
             [else success ...])))])))
 
+;; the popular keys have a list of booleans for the argument
+;; positions, where the boolean is meant to indicate if the
+;; contract in that position is known to be any/c. It isn't
+;; clear if this is worth doing, however, as it means (potentially)
+;; more diferetn kinds of wrappers and it isn't clear what
+;; the benefit is. also, there was a bug that meant that this
+;; check was being defeated a lot (that's fixed in this commit)
 (define-for-syntax popular-keys
   ;; the most popular contract shapes as of January 2016 from
   ;; the main distribution package; plus some that TR generates
@@ -802,6 +810,18 @@ plus1 arg list construction: build-plus-one-arity-function/real
                                                     this->)]
                         let-bindings)
                   ellipsis))]
+         [(identifier? (car args))
+          (loop (cdr args)
+                (cons (syntax-property (syntax-property
+                                        (car args)
+                                        'inferred-name (void))
+                                       'racket/contract:negative-position
+                                       this->)
+                      regular-args)
+                kwds
+                kwd-args
+                let-bindings
+                ellipsis)]
          [else
           (with-syntax ([(arg-x) (generate-temporaries (list (car args)))])
             (loop (cdr args)
@@ -1636,20 +1656,19 @@ plus1 arg list construction: build-plus-one-arity-function/real
                     [(post/desc) (list '#:post/desc '...)]
                     [(#f)        (list)]))])]))
 
-(define ((->-first-order ctc) x)
-  (define l (base->-min-arity ctc))
-  (define man-kwds (for/list ([kwd-info (base->-kwd-infos ctc)]
-                              #:when (kwd-info-mandatory? kwd-info))
-                     (kwd-info-kwd kwd-info)))
-  (define opt-kwds (for/list ([kwd-info (base->-kwd-infos ctc)]
-                              #:unless (kwd-info-mandatory? kwd-info))
-                     (kwd-info-kwd kwd-info)))
-  (and (procedure? x) 
-       (if (base->-rest ctc)
-           (procedure-accepts-and-more? x l)
-           (procedure-arity-includes? x l #t))
-       (keywords-match man-kwds opt-kwds x)
-       #t))
+(define (->-first-order ctc)
+  (define ->stct-doms (base->-doms ctc))
+  (define ->stct-rest (base->-rest ctc))
+  (define ->stct-min-arity (base->-min-arity ctc))
+  (define ->stct-kwd-infos (base->-kwd-infos ctc))
+  (define method? (base->-method? ctc))
+  (λ (val)
+    (do-arity-checking #f val
+                       ->stct-doms
+                       ->stct-rest
+                       ->stct-min-arity
+                       ->stct-kwd-infos
+                       method?)))
 
 (define (make-property is-impersonator?)
   (define build-X-property

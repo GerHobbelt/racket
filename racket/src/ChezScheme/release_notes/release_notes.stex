@@ -82,6 +82,7 @@ procedure) is given in parentheses.
 \item GNU Hurd
      \begin{itemizeC}
      \item x86, nonthreaded (i3gnu) and threaded (ti3gnu)
+     \item x86\_64, nonthreaded (a6gnu) and threaded (ta6gnu)
      \end{itemizeC}
 \item OpenSolaris
      \begin{itemizeC}
@@ -116,6 +117,18 @@ Online versions of both books can be found at
 %-----------------------------------------------------------------------------
 \section{Functionality Changes}\label{section:functionality}
 
+\subsection{Unicode 17.0.0 support (10.4.0)}
+
+The character sets, character classes, and word-breaking algorithms for character, string,
+and Unicode-related bytevector operations have now been updated to Unicode 17.0.0.
+
+The \scheme{char-indic-break-property} function was added to support decoding grapheme
+clusters with Indic conjuncts.
+
+\subsection{Add machine type a6gnu (10.4.0)}
+
+GNU/Hurd on x86\_64 is now supported as machine type a6gnu.
+
 \subsection{Interrupts and Large-Vector Operations (10.4.0)}
 
 Vector and string operations such as \scheme{make-vector},
@@ -142,6 +155,8 @@ even if the result is known in case of a success.
 
 The type recovery pass has improved support for \scheme{exact}, \scheme{inexact},
 and similar functions.
+
+A bug that incorrectly determined the type of \scheme{(- x)} has been fixed.
 
 \subsection{In-place vector copying (10.3.0)}
 
@@ -2915,6 +2930,11 @@ in fasl files does not generally make sense.
 
 %-----------------------------------------------------------------------------
 \section{Bug Fixes}\label{section:bugfixes}
+
+\subsection{Unicode Indic\_Conjunct\_Break support (10.4.0)}
+
+The grapheme cluster break algorithm neglected to consider the Indic\_Conjunct\_Break
+property available since Unicode 15.
 
 \subsection{Corrections and refinements to error reporting (10.4.0)}
 

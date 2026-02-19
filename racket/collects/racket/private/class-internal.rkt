@@ -24,6 +24,8 @@
                      "classidmap.rkt"
                      "intdef-util.rkt"))
 
+(#%declare #:unlimited-compile)
+
 (define insp (current-inspector)) ; for all opaque structures
 
 ;;--------------------------------------------------------------------
@@ -3058,11 +3060,11 @@ An example
 (define-values (prop:object _object? object-ref) 
   (make-struct-type-property 'object 'can-impersonate))
 (define (object? o)
-  (or (_object? o)
+  (or (object-struct? o)
       (wrapped-object? o)))
 (define (object-ref/unwrap o)
   (cond
-    [(_object? o) (object-ref o)]
+    [(object-struct? o) (object-ref o)]
     [(wrapped-object? o) (object-ref/unwrap (wrapped-object-object o))]
     [else 
      ;; error case
@@ -3483,59 +3485,60 @@ An example
 			  'object% null #f null (hash) (hash) #f null)])
 		    (setup-all-implemented! object<%>)
 		    object<%>))
+
 (define object%
-  (let ([object%
-	 ((make-naming-constructor struct:class 'object% "class")
-	  'object%
-	  0 (vector #f)
-	  object<%>
-	  void ; never inspectable
-	  #f   ; this is for the inspector on the object
+  ((make-naming-constructor struct:class 'object% "class")
+   'object%
+   0 (vector #f)
+   object<%>
+   void ; never inspectable
+   #f   ; this is for the inspector on the object
 
-	  0 (make-hasheq) null null null
-	  #f
-	  (vector) (vector) (vector) (vector) (vector)
+   0 (make-hasheq) null null null
+   #f
+   (vector) (vector) (vector) (vector) (vector)
 
-	  (vector) (vector) (vector)
+   (vector) (vector) (vector)
 
-	  0 0 (make-hasheq) null null
+   0 0 (make-hasheq) null null
 
-	  'struct:object object? 'make-object
-	  'field-ref-not-needed 'field-set!-not-needed
+   'struct:object object? 'make-object
+   'field-ref-not-needed 'field-set!-not-needed
 
-	  null
-	  'normal
+   null
+   'normal
 
-	  (lambda (this super-init si_c si_inited? si_leftovers args)
-	    (unless (null? args)
-	      (unused-args-error this args))
-	    (void))
+   (lambda (this super-init si_c si_inited? si_leftovers args)
+     (unless (null? args)
+       (unused-args-error this args))
+     (void))
 
-	  #f
-	  (lambda (obj) #(()))        ; serialize
-	  (lambda (obj args) (void))  ; deserialize-fixup
+   #f
+   (lambda (obj) #(()))        ; serialize
+   (lambda (obj args) (void))  ; deserialize-fixup
 
-	  #f   ; no chaperone to guard against unsafe-undefined
+   #f   ; no chaperone to guard against unsafe-undefined
 
-	  #t)]) ; no super-init
+   #t)) ; no super-init
 
+(define-values (struct:object make-object-struct object-struct? object-struct-get object-struct-set!)
+  (make-struct-type 'object #f 0 0 #f
+                    (list (cons prop:object object%)
+                          (cons prop:equal+hash
+                                (list object-equal?
+                                      object-hash-code
+                                      object-hash-code)))
+                    #f))
 
-    (vector-set! (class-supers object%) 0 object%)
-    (set-class-orig-cls! object% object%)
-    (let*-values ([(struct:obj make-obj obj? -get -set!)
-		   (make-struct-type 'object #f 0 0 #f
-				     (list (cons prop:object object%)
-					   (cons prop:equal+hash
-						 (list object-equal?
-						       object-hash-code
-						       object-hash-code)))
-				     #f)])
-      (set-class-struct:object! object% struct:obj)
-      (set-class-make-object! object% make-obj))
-    (set-class-object?! object% object?) ; don't use struct pred; it wouldn't work with prim classes
+;; finish `object%`
+(let ()
+  (vector-set! (class-supers object%) 0 object%)
+  (set-class-orig-cls! object% object%)
+  (set-class-struct:object! object% struct:object)
+  (set-class-make-object! object% make-object-struct)
+  (set-class-object?! object% object?)
 
-    (set-interface-class! object<%> object%)
-    object%))
+  (set-interface-class! object<%> object%))
 
 ;;--------------------------------------------------------------------
 ;;  instantiation
@@ -4065,25 +4068,81 @@ An example
      ;; send/keyword-apply
      send/keyword-apply)))
 
-(define dynamic-send
-  (make-keyword-procedure
-   (lambda (kws kw-vals obj method-name . args)
-     (unless (object? obj) (raise-argument-error 'dynamic-send "object?" obj))
-     (unless (symbol? method-name) (raise-argument-error 'dynamic-send "symbol?" method-name))
-     (define mtd (find-method/who 'dynamic-send obj method-name))
-     (cond
-       [(wrapped-object? obj)
-        (if mtd
-            (keyword-apply mtd kws kw-vals 
-                           (wrapped-object-neg-party obj) 
-                           (wrapped-object-object obj)
-                           args)
-            (keyword-apply dynamic-send kws kw-vals
-                           (wrapped-object-object obj)
-                           method-name
-                           args))]
-       [else
-        (keyword-apply mtd kws kw-vals obj args)]))))
+(define-syntax-rule
+  (dynamic-send-specialized obj method-name args ...)
+  (let ([mtd (dynamic-send-checks-and-get-method obj method-name)])
+    (cond
+      [(wrapped-object? obj)
+       (if mtd
+           (mtd (wrapped-object-neg-party obj)
+                (wrapped-object-object obj)
+                args ...)
+           (dynamic-send (wrapped-object-object obj)
+                         method-name
+                         args ...))]
+      [else
+       (mtd obj args ...)])))
+
+(define (dynamic-send-checks-and-get-method obj method-name)
+  (unless (object? obj) (raise-argument-error 'dynamic-send "object?" obj))
+  (unless (symbol? method-name) (raise-argument-error 'dynamic-send "symbol?" method-name))
+  (find-method/who 'dynamic-send obj method-name))
+
+(define dynamic-send-no-keywords
+  (let ([dynamic-send
+         (case-lambda
+           [(obj method-name) (dynamic-send-specialized obj method-name)]
+           [(obj method-name arg1) (dynamic-send-specialized obj method-name arg1)]
+           [(obj method-name arg1 arg2) (dynamic-send-specialized obj method-name arg1 arg2)]
+           [(obj method-name arg1 arg2 arg3) (dynamic-send-specialized obj method-name arg1 arg2 arg3)]
+           [(obj method-name . args)
+            (define mtd (dynamic-send-checks-and-get-method obj method-name))
+            (cond
+              [(wrapped-object? obj)
+               (if mtd
+                   (apply mtd (wrapped-object-neg-party obj)
+                          (wrapped-object-object obj)
+                          args)
+                   (apply dynamic-send
+                          (wrapped-object-object obj)
+                          method-name
+                          args))]
+              [else
+               (apply mtd obj args)])])])
+    dynamic-send))
+
+(define dynamic-send/proc
+  (let ([dynamic-send
+         (make-keyword-procedure
+          (lambda (kws kw-vals obj method-name . args)
+            (define mtd (dynamic-send-checks-and-get-method obj method-name))
+            (cond
+              [(wrapped-object? obj)
+               (if mtd
+                   (keyword-apply mtd kws kw-vals
+                                  (wrapped-object-neg-party obj)
+                                  (wrapped-object-object obj)
+                                  args)
+                   (keyword-apply dynamic-send kws kw-vals
+                                  (wrapped-object-object obj)
+                                  method-name
+                                  args))]
+              [else
+               (keyword-apply mtd kws kw-vals obj args)]))
+          dynamic-send-no-keywords)])
+    dynamic-send))
+
+(define-syntax (dynamic-send stx)
+  (syntax-case stx ()
+    [(_ args ...)
+     (for/and ([arg (in-list (syntax->list #'(args ...)))])
+       (not (keyword? (syntax-e arg))))
+     (with-syntax ([app (datum->syntax stx '#%app)])
+       (syntax/loc stx (app dynamic-send-no-keywords args ...)))]
+    [(_ . args)
+     (with-syntax ([app (datum->syntax stx '#%app)])
+       (syntax/loc stx (app dynamic-send/proc . args)))]
+    [x (identifier? #'x) (syntax/loc stx dynamic-send/proc)]))
 
 ;; imperative chained send
 (define-syntax (send* stx)
@@ -4705,7 +4764,7 @@ An example
        (object=-original-object o2)))
 
 (define (object=-original-object o)
-  (define orig-o (if (has-original-object? o) (original-object o) o))
+  (define orig-o (if (impersonator? o) (original-object o o) o))
   (define orig-orig-o
     (if (wrapped-object? orig-o)
         (wrapped-object-object orig-o)
@@ -4721,98 +4780,8 @@ An example
 ;;  primitive classes
 ;;--------------------------------------------------------------------
 
-(define (make-primitive-class 
-         make-struct:prim     ; see below
-         prim-init            ; primitive initializer: takes obj and list of name-arg pairs
-         name                 ; symbol
-         super                ; superclass
-         intfs                ; interfaces
-         init-arg-names       ; #f or list of syms and sym--value lists
-         override-names       ; overridden method names
-         new-names            ; new (public) method names
-         override-methods     ; list of methods
-         new-methods)         ; list of methods
-  
-  ; The `make-struct:prim' function takes prop:object, a class,
-  ;  a preparer, a dispatcher function, an unwrap property,
-  ;  an unwrapper, and a property assoc list, and produces:
-  ;    * a struct constructor (must have prop:object)
-  ;    * a struct predicate
-  ;    * a struct type for derived classes (mustn't have prop:object)
-  ;
-  ; The supplied preparer takes a symbol and returns a num.
-  ; 
-  ; The supplied dispatcher takes an object and a num and returns a method.
-  ;
-  ; The supplied unwrap property is used for adding the unwrapper
-  ;  as a property value on new objects.
-  ;
-  ; The supplied unwrapper takes an object and returns the unwrapped
-  ;  version (or the original object).
-  ;
-  ; When a primitive class has a superclass, the struct:prim maker
-  ;  is responsible for ensuring that the returned struct items match
-  ;  the supertype predicate.
-  
-  (compose-class name
-                 (or super object%)
-                 intfs
-                 #f
-                 #f
-                 #f
-                 
-                 0 null null null ; no fields
-                 
-                 null ; no rename-supers
-                 null ; no rename-inners
-                 null null new-names
-                 null null override-names
-                 null null null ; no augrides
-                 null ; no inherits
-                 
-                 ; #f => init args by position only
-                 ; sym => required arg
-                 ; sym--value list => optional arg
-                 (and init-arg-names  
-                      (map (lambda (s)
-                             (if (symbol? s) s (car s)))
-                           init-arg-names))
-                 'stop
-                 
-                 (lambda ignored
-                   (values
-                    new-methods
-                    override-methods
-                    null ; no augride-methods
-                    (lambda (this super-go/ignored si_c/ignored si_inited?/ignored si_leftovers/ignored init-args)
-                      (apply prim-init this 
-                             (if init-arg-names
-                                 (extract-primitive-args this name init-arg-names init-args)
-                                 init-args)))))
-
-                 #f
-                 
-                 make-struct:prim))
-
-(define (extract-primitive-args this class-name init-arg-names init-args)
-  (let loop ([names init-arg-names][args init-args])
-    (cond
-      [(null? names)
-       (unless (null? args)
-         (unused-args-error this args))
-       null]
-      [else (let* ([name (car names)]
-                   [id (if (symbol? name)
-                           name
-                           (car name))])
-              (let ([arg (assq id args)])
-                (cond
-                  [arg 
-                   (cons (cdr arg) (loop (cdr names) (remq arg args)))]
-                  [(symbol? name)
-                   (missing-argument-error class-name name)]
-                  [else
-                   (cons (cadr name) (loop (cdr names) args))])))])))
+(define (make-primitive-class  . args)
+  (error 'make-primitive-class "no longer supported"))
 
 ;;--------------------------------------------------------------------
 ;;  wrapper for contracts
