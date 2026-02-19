@@ -87261,24 +87261,229 @@
 (define check-count
   (lambda (is-num_0 expected-num_0 enclosing_0)
     (if (= is-num_0 expected-num_0) (void) (disallow enclosing_0))))
+(define walk-for-quotable
+  (lambda (d_0 recur_0)
+    (let ((or-part_0 (number? d_0)))
+      (if or-part_0
+        or-part_0
+        (let ((or-part_1 (boolean? d_0)))
+          (if or-part_1
+            or-part_1
+            (let ((or-part_2 (symbol? d_0)))
+              (if or-part_2
+                or-part_2
+                (let ((or-part_3 (if (string? d_0) (immutable? d_0) #f)))
+                  (if or-part_3
+                    or-part_3
+                    (let ((or-part_4 (if (bytes? d_0) (immutable? d_0) #f)))
+                      (if or-part_4
+                        or-part_4
+                        (let ((or-part_5 (char? d_0)))
+                          (if or-part_5
+                            or-part_5
+                            (let ((or-part_6 (keyword? d_0)))
+                              (if or-part_6
+                                or-part_6
+                                (let ((or-part_7 (null? d_0)))
+                                  (if or-part_7
+                                    or-part_7
+                                    (let ((or-part_8 (regexp? d_0)))
+                                      (if or-part_8
+                                        or-part_8
+                                        (let ((or-part_9 (extflonum? d_0)))
+                                          (if or-part_9
+                                            or-part_9
+                                            (let ((or-part_10
+                                                   (if (pair? d_0)
+                                                     (if (|#%app|
+                                                          recur_0
+                                                          (car d_0))
+                                                       (|#%app|
+                                                        recur_0
+                                                        (cdr d_0))
+                                                       #f)
+                                                     #f)))
+                                              (if or-part_10
+                                                or-part_10
+                                                (let ((or-part_11
+                                                       (if (vector? d_0)
+                                                         (if (immutable? d_0)
+                                                           (call-with-values
+                                                            (lambda ()
+                                                              (values
+                                                               d_0
+                                                               (unsafe-vector-length
+                                                                d_0)))
+                                                            (lambda (vec_0
+                                                                     len_0)
+                                                              (letrec*
+                                                               ((for-loop_0
+                                                                 (|#%name|
+                                                                  for-loop
+                                                                  (lambda (result_0
+                                                                           pos_0)
+                                                                    (if (unsafe-fx<
+                                                                         pos_0
+                                                                         len_0)
+                                                                      (let ((v_0
+                                                                             (unsafe-vector-ref
+                                                                              vec_0
+                                                                              pos_0)))
+                                                                        (let ((result_1
+                                                                               (let ((result_1
+                                                                                      (|#%app|
+                                                                                       recur_0
+                                                                                       v_0)))
+                                                                                 (values
+                                                                                  result_1))))
+                                                                          (if (if (not
+                                                                                   (let ((x_0
+                                                                                          (list
+                                                                                           v_0)))
+                                                                                     (not
+                                                                                      result_1)))
+                                                                                #t
+                                                                                #f)
+                                                                            (for-loop_0
+                                                                             result_1
+                                                                             (unsafe-fx+
+                                                                              1
+                                                                              pos_0))
+                                                                            result_1)))
+                                                                      result_0)))))
+                                                               (for-loop_0
+                                                                #t
+                                                                0))))
+                                                           #f)
+                                                         #f)))
+                                                  (if or-part_11
+                                                    or-part_11
+                                                    (let ((or-part_12
+                                                           (if (hash? d_0)
+                                                             (if (hash-eq? d_0)
+                                                               (if (immutable?
+                                                                    d_0)
+                                                                 (letrec*
+                                                                  ((for-loop_0
+                                                                    (|#%name|
+                                                                     for-loop
+                                                                     (lambda (result_0
+                                                                              i_0)
+                                                                       (if i_0
+                                                                         (call-with-values
+                                                                          (lambda ()
+                                                                            (hash-iterate-key+value
+                                                                             d_0
+                                                                             i_0))
+                                                                          (lambda (k_0
+                                                                                   v_0)
+                                                                            (let ((result_1
+                                                                                   (let ((result_1
+                                                                                          (if (|#%app|
+                                                                                               recur_0
+                                                                                               k_0)
+                                                                                            (|#%app|
+                                                                                             recur_0
+                                                                                             v_0)
+                                                                                            #f)))
+                                                                                     (values
+                                                                                      result_1))))
+                                                                              (if (if (not
+                                                                                       (let ((x_0
+                                                                                              (list
+                                                                                               k_0
+                                                                                               v_0)))
+                                                                                         (not
+                                                                                          result_1)))
+                                                                                    #t
+                                                                                    #f)
+                                                                                (for-loop_0
+                                                                                 result_1
+                                                                                 (hash-iterate-next
+                                                                                  d_0
+                                                                                  i_0))
+                                                                                result_1))))
+                                                                         result_0)))))
+                                                                  (for-loop_0
+                                                                   #t
+                                                                   (hash-iterate-first
+                                                                    d_0)))
+                                                                 #f)
+                                                               #f)
+                                                             #f)))
+                                                      (if or-part_12
+                                                        or-part_12
+                                                        (let ((or-part_13
+                                                               (if (box? d_0)
+                                                                 (if (immutable?
+                                                                      d_0)
+                                                                   (|#%app|
+                                                                    recur_0
+                                                                    (unbox
+                                                                     d_0))
+                                                                   #f)
+                                                                 #f)))
+                                                          (if or-part_13
+                                                            or-part_13
+                                                            (if (immutable-prefab-struct-key
+                                                                 d_0)
+                                                              (call-with-values
+                                                               (lambda ()
+                                                                 (unsafe-normalise-inputs
+                                                                  unsafe-vector-length
+                                                                  (struct->vector
+                                                                   d_0)
+                                                                  1
+                                                                  #f
+                                                                  1))
+                                                               (lambda (v*_0
+                                                                        start*_0
+                                                                        stop*_0
+                                                                        step*_0)
+                                                                 (letrec*
+                                                                  ((for-loop_0
+                                                                    (|#%name|
+                                                                     for-loop
+                                                                     (lambda (result_0
+                                                                              idx_0)
+                                                                       (if (unsafe-fx<
+                                                                            idx_0
+                                                                            stop*_0)
+                                                                         (let ((v_0
+                                                                                (unsafe-vector-ref
+                                                                                 v*_0
+                                                                                 idx_0)))
+                                                                           (let ((result_1
+                                                                                  (let ((result_1
+                                                                                         (|#%app|
+                                                                                          recur_0
+                                                                                          v_0)))
+                                                                                    (values
+                                                                                     result_1))))
+                                                                             (if (if (not
+                                                                                      (let ((x_0
+                                                                                             (list
+                                                                                              v_0)))
+                                                                                        (not
+                                                                                         result_1)))
+                                                                                   #t
+                                                                                   #f)
+                                                                               (for-loop_0
+                                                                                result_1
+                                                                                (unsafe-fx+
+                                                                                 idx_0
+                                                                                 1))
+                                                                               result_1)))
+                                                                         result_0)))))
+                                                                  (for-loop_0
+                                                                   #t
+                                                                   start*_0))))
+                                                              #f)))))))))))))))))))))))))))))))
 (define check-datum
   (lambda (d_0 e_0)
-    (if (let ((or-part_0 (number? d_0)))
-          (if or-part_0
-            or-part_0
-            (let ((or-part_1 (boolean? d_0)))
-              (if or-part_1
-                or-part_1
-                (let ((or-part_2 (symbol? d_0)))
-                  (if or-part_2
-                    or-part_2
-                    (let ((or-part_3 (string? d_0)))
-                      (if or-part_3
-                        or-part_3
-                        (let ((or-part_4 (bytes? d_0)))
-                          (if or-part_4 or-part_4 (null? d_0)))))))))))
-      (void)
-      (disallow e_0))))
+    (let ((or-part_0
+           (walk-for-quotable d_0 (lambda (d2_0) (check-datum d2_0 e_0)))))
+      (if or-part_0 or-part_0 (disallow e_0)))))
 (define quoted-string?
   (lambda (e_0)
     (if (parsed-quote? e_0) (string? (parsed-quote-datum e_0)) #f)))
