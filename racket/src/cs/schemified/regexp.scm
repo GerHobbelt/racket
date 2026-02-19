@@ -1305,9 +1305,9 @@
                     (if (eq? rx_0 'unicode-grapheme) #t #f)))))))))))
 (define rx-range
   (lambda (range_0 limit-c_0)
-    (let ((c1_0 (range-singleton range_0)))
-      (if c1_0
-        c1_0
+    (let ((cond-val_0 (range-singleton range_0)))
+      (if cond-val_0
+        cond-val_0
         (if (range-includes? range_0 0 limit-c_0)
           'any
           (rx:range11.1 range_0))))))
@@ -3024,10 +3024,12 @@
                                                            (regexp-error
                                                             "backreference number is larger than the highest-numbered cluster"))
                                                          (let ((min-size_0
-                                                                (hash-ref
-                                                                 group-sizes_0
-                                                                 n_0
-                                                                 #f)))
+                                                                (let ((app_0
+                                                                       group-sizes_0))
+                                                                  (hash-ref
+                                                                   app_0
+                                                                   (sub1 n_0)
+                                                                   #f))))
                                                            (if min-size_0
                                                              (values
                                                               min-size_0

@@ -401,31 +401,50 @@
          ($oops who "~s is not a valid vector length" n))
        (make-vector n)]))
 
+(define-who $make-vector/no-interrupt-trap
+   (case-lambda
+      [(n x)
+       (unless (and (fixnum? n) (not ($fxu< (constant maximum-vector-length) n)))
+         ($oops who "~s is not a valid vector length" n))
+       ($make-vector/no-interrupt-trap n x)]
+      [(n)
+       (unless (and (fixnum? n) (not ($fxu< (constant maximum-vector-length) n)))
+         ($oops who "~s is not a valid vector length" n))
+       ($make-vector/no-interrupt-trap n)]))
+
 (define-who make-immobile-vector
   (let ([$make-immobile-vector (foreign-procedure "(cs)make_immobile_vector" (uptr ptr) ptr)])
    (case-lambda
       [(n x)
        (unless (and (fixnum? n) (not ($fxu< (constant maximum-vector-length) n)))
          ($oops who "~s is not a valid vector length" n))
-       ($make-immobile-vector n x)]
+       (let ([v ($make-immobile-vector n x)])
+         ($use-trap-fuel n (constant fuel-word-count-shift))
+         v)]
       [(n)
        (unless (and (fixnum? n) (not ($fxu< (constant maximum-vector-length) n)))
          ($oops who "~s is not a valid vector length" n))
-       ($make-immobile-vector n 0)])))
+       (let ([v ($make-immobile-vector n 0)])
+         ($use-trap-fuel n (constant fuel-word-count-shift))
+         v)])))
 
 (define-who make-reference-bytevector
   (let ([$make-reference-bytevector (foreign-procedure "(cs)s_make_reference_bytevector" (uptr) ptr)])
     (lambda (n)
       (unless (and (fixnum? n) (not ($fxu< (constant maximum-bytevector-length) n)))
         ($oops who "~s is not a valid bytevector length" n))
-      ($make-reference-bytevector n))))
+      (let ([v ($make-reference-bytevector n)])
+        ($use-trap-fuel n (+ (constant fuel-word-count-shift) (constant log2-ptr-bytes)))
+        v))))
 
 (define-who make-immobile-reference-bytevector
   (let ([$make-immobile-reference-bytevector (foreign-procedure "(cs)s_make_immobile_reference_bytevector" (uptr) ptr)])
     (lambda (n)
       (unless (and (fixnum? n) (not ($fxu< (constant maximum-bytevector-length) n)))
         ($oops who "~s is not a valid bytevector length" n))
-      ($make-immobile-reference-bytevector n))))
+      (let ([v ($make-immobile-reference-bytevector n)])
+        ($use-trap-fuel n (+ (constant fuel-word-count-shift) (constant log2-ptr-bytes)))
+        v))))
 
 (define $make-eqhash-vector
   (case-lambda
@@ -2428,10 +2447,10 @@
       (fp s))))
 )
 
-(define ($real->flonum x who)
+(define ($real->flonum who x)
   (unless (or (not who) (symbol? who) (string? who))
     ($oops '$real->flonum "invalid who argument ~s" who))
-  (#3%$real->flonum x who))
+  (#3%$real->flonum who x))
 
 (define (real->flonum x) (#2%real->flonum x))
 
@@ -2446,15 +2465,28 @@
 (define $foreign-char? (lambda (x) (#3%$foreign-char? x)))
 (define $foreign-wchar? (lambda (x) (#3%$foreign-wchar? x)))
 
+(define $use-trap-fuel
+  (lambda (n shift)
+    (unless (fixnum? n) ($oops '$use-trap-fuel "~s is not a fixnum" n))
+    (unless (and (fixnum? shift) ($fxu< shift (constant fixnum-bits)))
+      ($oops '$use-trap-fuel "invalid shift count ~s" shift))
+    ($use-trap-fuel n shift)))
+
 (define $byte-copy!
-  (foreign-procedure "(cs)byte-copy"
-    (scheme-object fixnum scheme-object fixnum fixnum)
-    void))
+  (let ([byte-copy! (foreign-procedure __atomic "(cs)byte-copy"
+                      (scheme-object fixnum scheme-object fixnum fixnum)
+                      void)])
+    (lambda (src srcoff dst dstoff cnt)
+      (byte-copy! src srcoff dst dstoff cnt)
+      ($use-trap-fuel cnt (+ (constant fuel-word-count-shift) (constant log2-ptr-bytes))))))
 
 (define $ptr-copy!
-  (foreign-procedure "(cs)ptr-copy"
-    (scheme-object fixnum scheme-object fixnum fixnum)
-    void))
+  (let ([ptr-copy! (foreign-procedure __atomic "(cs)ptr-copy"
+                     (scheme-object fixnum scheme-object fixnum fixnum)
+                     void)])
+    (lambda (src srcoff dst dstoff cnt)
+      (ptr-copy! src srcoff dst dstoff cnt)
+      ($use-trap-fuel cnt (constant fuel-word-count-shift)))))
 
 (define-who ($sealed-record? x rtd)
   (unless (record-type-descriptor? rtd)

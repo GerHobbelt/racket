@@ -426,6 +426,7 @@ void scheme_init_port_places(void);
 void scheme_init_regexp_places(void);
 void scheme_init_stx_places(int initial_main_os_thread);
 void scheme_init_fun_places(void);
+void scheme_init_char_places(void);
 void scheme_init_sema_places(void);
 void scheme_init_gmp_places(void);
 void scheme_init_variable_references_constants(void);
@@ -2718,6 +2719,7 @@ Scheme_Object *scheme_named_map_1(char *,
 XFORM_NONGCING int scheme_strncmp(const char *a, const char *b, int len);
 
 #define _scheme_make_char(ch) scheme_make_character(ch)
+Scheme_Object *scheme_make_uninterned_char(mzchar ch);
 
 Scheme_Object *scheme_default_print_handler(int, Scheme_Object *[]);
 Scheme_Object *scheme_default_prompt_read_handler(int, Scheme_Object *[]);
@@ -3152,6 +3154,7 @@ int scheme_omittable_expr(Scheme_Object *o, int vals, int fuel, int flags,
 #define OMITTABLE_KEEP_MUTABLE_VARS 0x4
 #define OMITTABLE_IGNORE_APPN_OMIT  0x8
 #define OMITTABLE_IGNORE_MAKE_STRUCT_TYPE 0x10
+#define OMITTABLE_REALLY_NO_MARKS   0x20
 
 int scheme_might_invoke_call_cc(Scheme_Object *value);
 int scheme_is_liftable(Scheme_Object *o, Scheme_Hash_Tree *exclude_vars, int fuel, int as_rator, int or_escape);
@@ -3194,6 +3197,7 @@ int scheme_is_simple_make_struct_type_property(Scheme_Object *app, int vals, int
 #define CHECK_STRUCT_TYPE_ALWAYS_SUCCEED   0x2
 #define CHECK_STRUCT_TYPE_DELAY_AUTO_CHECK 0x4
 #define CHECK_STRUCT_TYPE_NONCALLING_PROP  0x8
+#define CHECK_STRUCT_TYPE_NO_MARKS         0x10
 
 int scheme_known_noncalling_guard_struct_type_property(Scheme_Object *v);
 

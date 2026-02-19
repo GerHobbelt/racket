@@ -116,6 +116,33 @@ Online versions of both books can be found at
 %-----------------------------------------------------------------------------
 \section{Functionality Changes}\label{section:functionality}
 
+\subsection{Interrupts and Large-Vector Operations (10.4.0)}
+
+Vector and string operations such as \scheme{make-vector},
+\scheme{make-bytevector}, \scheme{make-string},
+\scheme{string-append}, and \scheme{vector-append}---whose run times
+depend on the length of the vector, bytevector, or string---were
+treated for the purposes of scheduling interrupt checking as
+essentially constant-time operations. As a result, garbage collections
+and timer expirations could be too infrequent. These operations still
+will not be interrupted during their execution, but they are treated
+as taking time proportional to their work for the purpose of
+scheduling interrupts.
+
+List operations such as \scheme{length}, \scheme{list-ref},
+\scheme{list-tail}, \scheme{append}, \scheme{reverse}, \scheme{assq},
+and \scheme{memq} suffer from the same problem only in unsafe mode.
+Direct use of these procedures in unsafe mode continues to be treated
+as essentialy constant-time.
+
+\subsection{Type recovery improvements (10.4.0)}
+
+The compiler now avoids moving predicates from tail position when they may raise an error,
+even if the result is known in case of a success.
+
+The type recovery pass has improved support for \scheme{exact}, \scheme{inexact},
+and similar functions.
+
 \subsection{In-place vector copying (10.3.0)}
 
 The \scheme{vector-copy!} procedure copies a subsequence
@@ -137,9 +164,6 @@ The compiler now inlines more numeric predicates, in particular \scheme{real?},
 The type recovery pass has improved support for \scheme{cfl+} and similar functions,
 \scheme{integer?}, \scheme{zero?}, and similar predicates, and \scheme{+} and \scheme{-}.
 
-Avoid moving predicates from tail position when they may raise
-an error, in spite the result in known in case of a success.
-
 \subsection{Unicode 16.0.0 support (10.3.0)}
 
 The character sets, character classes, and word-breaking algorithms for character, string,
@@ -159,10 +183,10 @@ foreign functions may be compiled to a more efficient form, particularly if the 
 accepts or returns flonums that may be unboxed (in the sense of
 Section~\ref{sec:unbox-floats}).
 
-\subsection{Improved flonum unboxing for \scheme{fptr-ref} and \scheme{fptr-set!} (10.3.0)}
+\subsection{Improved flonum unboxing for \scheme{ftype-ref} and \scheme{ftype-set!} (10.3.0)}
 
 Unboxing optimizations (in the sense of Section~\ref{sec:unbox-floats}) are more
-consistently applied for \scheme{fptr-ref} and \scheme{fptr-set!} on \scheme{double} and
+consistently applied for \scheme{ftype-ref} and \scheme{ftype-set!} on \scheme{double} and
 \scheme{float} fields.
 
 \subsection{Atomic compare-and-set for pairs (10.3.0)}
@@ -2891,6 +2915,21 @@ in fasl files does not generally make sense.
 
 %-----------------------------------------------------------------------------
 \section{Bug Fixes}\label{section:bugfixes}
+
+\subsection{Corrections and refinements to error reporting (10.4.0)}
+
+A bug in the error message produced when \scheme{list*} and \scheme{cons*} are called with
+zero arguments has been fixed.
+
+When \scheme{>} and \scheme{>=} are applied to two non-real arguments, the first argument
+is now reported as incorrect instead of the second. In general, when two or more arguments
+are invalid, there is no guarantee about which one is reported invalid.
+
+\subsection{Fix 32-bit ARM floating-point dereference offset (10.4.0)}
+
+A bug that affects compilation on 32-bit ARM systems has been fixed. The bug was triggered
+when an offset to a floating-point field or array element was unaligned or too large to
+fit into the 12-bit encoding used for immediate offsets.
 
 \subsection{Exit with failure on error from boot file (10.3.0)}
 

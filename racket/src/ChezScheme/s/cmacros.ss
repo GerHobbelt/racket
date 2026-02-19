@@ -2117,6 +2117,8 @@
 (define-constant default-heap-reserve-ratio 1.0)
 (define-constant default-max-nonstatic-generation 4)
 
+(define-constant fuel-word-count-shift 2)
+
 (constant-case address-bits
   [(32)
    (constant-case segment-table-levels
@@ -2984,7 +2986,7 @@
      (bytevector=? #f 2 #f #f)
      (bytevector-ieee-double-native-ref #f 2 #t #t)
      (bytevector-ieee-double-native-set! #f 2 #t #t)
-     (real->flonum #f 2 #f #t)
+     ($real->flonum #f 2 #f #t)
      (exact? #f 1 #t #t)
      (inexact? #f 1 #t #t)
      (unsafe-port-eof? #f 1 #f #t)

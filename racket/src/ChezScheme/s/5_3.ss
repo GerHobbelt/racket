@@ -1445,13 +1445,21 @@
   (set-who! inexact (lambda (z) (convert-to-inexact z who)))
   (set-who! exact->inexact (lambda (z) (convert-to-inexact z who))))
 
+(set! $real->flonum
+  (lambda (who z)
+    (type-case z
+      [(fixnum?) (fixnum->flonum z)]
+      [(bignum? ratnum?) (float z)]
+      [(flonum?) z]
+      [else (nonreal-error who z)])))
+
 (let ()
   (define convert-to-exact
-    (lambda (z who)
+    (lambda (who z)
       (type-case z
         [(flonum?)
          (when (exceptional-flonum? z)
-           ($oops 'exact "no exact representation for ~s" z))
+           ($oops who "no exact representation for ~s" z))
          (let ([dx (decode-float z)])
            (let ([mantissa (* (vector-ref dx 0) (vector-ref dx 2))]
                  [exponent (vector-ref dx 1)])
@@ -1460,12 +1468,13 @@
                  (* mantissa (ash 1 exponent)))))]
         [($inexactnum?)
          (make-rectangular
-           (exact ($inexactnum-real-part z))
-           (exact ($inexactnum-imag-part z)))]
+           (convert-to-exact who ($inexactnum-real-part z))
+           (convert-to-exact who ($inexactnum-imag-part z)))]
         [(fixnum? bignum? ratnum? $exactnum?) z]
         [else (nonnumber-error who z)])))
-  (set-who! exact (lambda (z) (convert-to-exact z who)))
-  (set-who! inexact->exact (lambda (z) (convert-to-exact z who))))
+  (set-who! exact (lambda (z) (convert-to-exact who z)))
+  (set-who! inexact->exact (lambda (z) (convert-to-exact who z)))
+)
 
 (set! rationalize
    ; Alan Bawden's algorithm
@@ -2379,7 +2388,12 @@
              [(fixnum?) (if (fixnum-floatable-wlop? y) (fl< x (fixnum->flonum y)) (exact-inexact-compare? > y x))]
              [(bignum? ratnum?) (exact-inexact-compare? > y x)]
              [else (nonreal-error who y)])]
-         [else (nonreal-error who x)])))
+         [else (when (and (eq? who '>)
+                          ;; arguments were reversed; call in other order to
+                          ;; check original first argument first
+                          (not (real? y)))
+                 (nonreal-error who y))
+               (nonreal-error who x)])))
 
 (set! $<=
    (lambda (who x y)
@@ -2415,7 +2429,12 @@
              [(fixnum?) (if (fixnum-floatable-wlop? y) (fl<= x (fixnum->flonum y)) (exact-inexact-compare? >= y x))]
              [(bignum? ratnum?) (exact-inexact-compare? >= y x)]
              [else (nonreal-error who y)])]
-         [else (nonreal-error who x)])))
+         [else (when (and (eq? who '>=)
+                          ;; arguments were reversed; call in other order to
+                          ;; check original first argument first
+                          (not (real? y)))
+                 (nonreal-error who y))
+               (nonreal-error who x)])))
 
 (set! $+
   (lambda (who x y)
