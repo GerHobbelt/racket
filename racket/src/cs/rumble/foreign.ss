@@ -1462,13 +1462,18 @@
           (or maybe-core ; might be provided as statically generated
               ;; There's a second, compile-time copy of this core-creation code in
               ;; `ffi-static-call-and-callback-core`
-              (let* ([conv* (let ([conv* (case abi
-                                           [(stdcall) '(__stdcall)]
-                                           [(sysv) '(__cdecl)]
-                                           [else '()])])
-                              (if varargs-after
-                                  (cons `(__varargs_after ,varargs-after) conv*)
-                                  conv*))]
+              (let* ([conv* (let* ([conv* (case abi
+                                            [(stdcall) '(__stdcall)]
+                                            [(sysv) '(__cdecl)]
+                                            [else '()])]
+                                   [conv* (case (and call? save-errno)
+                                            [(posix) (cons '__errno conv*)]
+                                            [(windows) (cons '__get_last_error conv*)]
+                                            [else conv*])]
+                                   [conv* (if varargs-after
+                                              (cons `(__varargs_after ,varargs-after) conv*)
+                                              conv*)])
+                              conv*)]
                      [next!-id (let ([counter 0])
                                  ;; Like `gensym`, but deterministic --- and doesn't
                                  ;; have to be totally unique, as long as it doesn't
@@ -1502,6 +1507,7 @@
                                   (,(if call? 'foreign-procedure 'foreign-callable)
                                    ,@conv*
                                    ,@(if (or blocking? async-apply) '(__collect_safe) '())
+                                   ,@(if (not call?) '(__disable_interrupts) '())
                                    to-wrap
                                    ,(map (lambda (in-type id)
                                            (if id
@@ -1572,8 +1578,7 @@
                                                           (when #,lock (mutex-acquire #,lock))
                                                           (let ([r (retain
                                                                     orig ...
-                                                                    (with-interrupts-disabled*
-                                                                     (proc id ...)))])
+                                                                    (proc id ...))])
                                                             (when #,lock (mutex-release #,lock))
                                                             ((ctype-c->s out-type) r)))))])
                                              #`(let*-values ([(type in-types) (values (car in-types) (cdr in-types))]
@@ -1596,17 +1601,15 @@
                          (let ([args (map (lambda (a t) ((ctype-s->c t) name a)) orig-args in-types)])
                            ((ctype-c->s out-type) (retain
                                                    orig-args
-                                                   (with-interrupts-disabled*
-                                                    (#%apply proc args))))))]))]
+                                                   (#%apply proc args)))))]))]
                  [else
                   (lambda orig-args
                     (let ([args (map (lambda (a t) ((ctype-s->c t) name a)) orig-args in-types)])
                       (when lock (mutex-acquire lock))
                       (let ([r (retain
                                 orig-args
-                                (with-interrupts-disabled*
-                                 (#%apply (gen-proc (ftype-pointer-address proc-p))
-                                          args)))])
+                                (#%apply (gen-proc (ftype-pointer-address proc-p))
+                                         args))])
                         (when lock (mutex-release lock))
                         ((ctype-c->s out-type) r))))])
                arity-mask
@@ -1628,38 +1631,45 @@
                                               (normalized-malloc ret-size ret-malloc-mode)))])
                            (let ([go (lambda ()
                                        (when lock (mutex-acquire lock))
-                                       (with-interrupts-disabled*
-                                        (begin-foreign-checking
-                                         (when blocking? (current-lock-status #t)))
-                                        (retain
-                                         orig-args
-                                         (let ([r (let ([args (append
-                                                               (if ret-ptr
-                                                                   (begin
-                                                                     (lock-cpointer ret-ptr)
-                                                                     (list ret-ptr))
-                                                                   '())
-                                                               args)]
-                                                        [proc (gen-proc (ftype-pointer-address proc-p))])
-                                                    (cond
-                                                      [(not exns?)
-                                                       (#%apply proc args)]
-                                                      [else
-                                                       (call-guarding-foreign-escape
-                                                        (lambda () (#%apply proc args))
-                                                        (lambda ()
-                                                          (when lock (mutex-release lock))
-                                                          (begin-foreign-checking
-                                                           (when blocking? (current-lock-status #f)))))]))])
-                                           (when lock (mutex-release lock))
-                                           (begin-foreign-checking
-                                            (when blocking? (current-lock-status #f)))
-                                           (case save-errno
-                                             [(posix) (thread-cell-set! errno-cell (get-errno))]
-                                             [(windows) (thread-cell-set! errno-cell (get-last-error))])
-                                           (cond
-                                             [ret-ptr (unlock-cpointer ret-ptr) ret-ptr]
-                                             [else r])))))])
+                                       (when (or save-errno ret-ptr) (disable-interrupts))
+                                       (begin-foreign-checking
+                                        (when blocking? (current-lock-status #t)))
+                                       (retain
+                                        orig-args
+                                        (let ([r (let ([args (append
+                                                              (if ret-ptr
+                                                                  (begin
+                                                                    (lock-cpointer ret-ptr)
+                                                                    (list ret-ptr))
+                                                                  '())
+                                                              args)]
+                                                       [proc (gen-proc (ftype-pointer-address proc-p))])
+                                                   (cond
+                                                     [(not exns?)
+                                                      (if save-errno
+                                                          (let-values ([(r errno) (#%apply proc args)])
+                                                            (cons r errno))
+                                                          (#%apply proc args))]
+                                                     [else
+                                                      (call-guarding-foreign-escape
+                                                       (lambda () (if save-errno
+                                                                      (let-values ([(r errno) (#%apply proc args)])
+                                                                        (cons r errno))
+                                                                      (#%apply proc args)))
+                                                       (lambda ()
+                                                         (when lock (mutex-release lock))
+                                                         (begin-foreign-checking
+                                                          (when blocking? (current-lock-status #f)))
+                                                         (when (or save-errno ret-ptr) (enable-interrupts))))]))])
+                                          (when lock (mutex-release lock))
+                                          (begin-foreign-checking
+                                           (when blocking? (current-lock-status #f)))
+                                          (when save-errno
+                                            (thread-cell-set! errno-cell (cdr r)))
+                                          (cond
+                                            [ret-ptr (unlock-cpointer ret-ptr) (enable-interrupts) ret-ptr]
+                                            [save-errno (enable-interrupts) (car r)]
+                                            [else r]))))])
                              (if (and orig-place?
                                       (not (eqv? 0 (get-thread-id))))
                                  (async-callback-queue-call orig-place-async-callback-queue (lambda (th) (th)) (lambda () (go)) #f #t #t #t)
@@ -1699,16 +1709,24 @@
                           v)))))])))
 
 (define-syntax (ffi-static-call-and-callback-core stx)
-  (syntax-case stx ()
-    [(_ (in-type ...) out-type abi varargs-after collect-safe?)
+  (syntax-case stx (quote)
+    [(_ (in-type ...) out-type (quote abi) varargs-after collect-safe? (quote save-errno))
      ;; There's a second, run-time copy of this core-creation code in `ffi-call/callable`
-     (let* ([conv* (let ([conv* (case (#%syntax->datum #'abi)
-                                  [(stdcall) '(__stdcall)]
-                                  [(sysv) '(__cdecl)]
-                                  [else '()])])
-                     (if (#%syntax->datum #'varargs-after)
-                         (cons `(__varargs_after ,(#%syntax->datum #'varargs-after)) conv*)
-                         conv*))]
+     (let* ([windows? (memq (#%$target-machine) '(a6nt ta6nt i3nt ti3nt arm64nt tarm64nt))]
+            [conv* (let* ([conv* (case (and windows? (#%syntax->datum #'abi))
+                                   [(stdcall) '(__stdcall)]
+                                   [(sysv) '(__cdecl)]
+                                   [else '()])]
+                          [conv* (case (#%syntax->datum #'save-errno)
+                                   [(posix) (cons '__errno conv*)]
+                                   [(windows) (if windows?
+                                                  (cons '__get_last_error conv*)
+                                                  conv*)]
+                                   [else conv*])]
+                          [conv* (if (#%syntax->datum #'varargs-after)
+                                     (cons `(__varargs_after ,(#%syntax->datum #'varargs-after)) conv*)
+                                              conv*)])
+                     conv*)]
             [by-value? (lambda (type-stx)
                          (syntax-case type-stx ()
                            [(type . _)
@@ -1748,6 +1766,7 @@
                           (,(if call? 'foreign-procedure 'foreign-callable)
                            ,@conv*
                            ,@(if (#%syntax->datum #'collect-safe?) '(__collect_safe) '())
+                           ,@(if (not call?) '(__disable_interrupts) '())
                            to-wrap
                            ,(map (lambda (in-type id)
                                    (if id
@@ -1769,8 +1788,8 @@
              ,(mk-proc #t)
              ,(mk-proc #f))))))]))
 
-(define (ffi-maybe-call-and-callback-core must? abi varags-after blocking? async-apply? out . ins)
-  (values #f ins out abi varags-after blocking? async-apply?))
+(define (ffi-maybe-call-and-callback-core must? abi varags-after blocking? async-apply? save-errno out . ins)
+  (values #f ins out abi varags-after blocking? async-apply? save-errno))
 
 (define (assert-ctype-representation ctype1 ctype2)
   (meta-cond
@@ -1810,11 +1829,11 @@
 
 ;; Can be called in any Scheme thread
 (define (call-as-atomic-callback thunk atomic? async-apply async-callback-queue)
+  ;; Interrupts are diabled at this point, because `__disable_interrupts` is
+  ;; always used with `foreign-callable`.
   (cond
    [(eqv? (place-thread-category) PLACE-MAIN-THREAD)
-    ;; In the main thread of a place. We must have gotten here by a
-    ;; foreign call that called back, so interrupts are currently
-    ;; disabled.
+    ;; In the main thread of a place
     (cond
      [(not atomic?)
       ;; reenable interrupts
@@ -1845,10 +1864,8 @@
       (async-callback-queue-call async-callback-queue
                                  async-apply
                                  thunk
-                                 ;; If we created this thread by `fork-pthread`, we must
-                                 ;; have gotten here by a foreign call, so interrupts are
-                                 ;; currently disabled
-                                 known-thread?
+                                 ;; Interrupts are disabled at this point
+                                 #t
                                  ;; In a thread created by `fork-pthread`, we'll have to tell
                                  ;; the scheduler to be in atomic mode:
                                  known-thread?
@@ -2032,30 +2049,14 @@
      [(assq sym errno-alist) => cdr]
      [else #f])))
 
-;; function is called with interrupts disabled
-(define get-errno
-  (cond
-   [(not (#%memq (machine-type) '(a6nt ta6nt i3nt ti3nt arm64nt tarm64nt)))
-    (foreign-procedure "(cs)s_errno" () int)]
-   [else
-    ;; On Windows, `errno` could be a different one from
-    ;; `_errno` in MSVCRT. Therefore fallback to the foreign function.
-    ;; See `save_errno_values` in `foreign.c` from Racket BC for more
-    ;; information.
-    (load-shared-object (if (#%memq (machine-type) '(arm64nt tarm64nt))
-			    "API-MS-WIN-CRT-RUNTIME-L1-1-1.0.DLL"
-			    "msvcrt.dll"))
-    (let ([get-&errno (foreign-procedure "_errno" () void*)])
-      (lambda ()
-        (foreign-ref 'int (get-&errno) 0)))]))
-
-;; function is called with interrupts disabled
-(define get-last-error
+(define (init-errno!)
   (case (machine-type)
     [(a6nt ta6nt i3nt ti3nt)
-     (load-shared-object "kernel32.dll")
-     (foreign-procedure "GetLastError" () int)]
-    [else (lambda () 0)]))
+     (current-errno-source 'msvcrt)]
+    [(arm64nt tarm64nt)
+     (current-errno-source 'ucrt)]
+    [else
+     (void)]))
 
 ;; ----------------------------------------
 
@@ -2089,3 +2090,8 @@
                                   (ftype-pointer-address m)))))
   (inherit-equal+hash! (record-type-descriptor cpointer+offset)
                        (record-type-descriptor cpointer)))
+
+;; ----------------------------------------
+
+(define-syntax-rule (|#%foreign-inline| e copy-mode)
+  e)

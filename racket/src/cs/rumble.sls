@@ -182,6 +182,8 @@
           |#%name|              ; not exported to racket
           |#%method-arity|      ; not exported to racket
 
+          |#%foreign-inline|
+
           equal?
           equal?/recur
           equal-always?
@@ -928,6 +930,7 @@
 
   (init-flonum-printing!)
   (set-no-locate-source!)
+  (init-errno!)
   ;; Note: if there's a bug in `rumble` that causes exception handling to error,
   ;; the the following line will cause the error to loop with another error, etc.,
   ;; probably without printing anything:
