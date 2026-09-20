@@ -1,20 +1,22 @@
 #lang scribble/manual
 @(require "common.rkt")
 
-@title[#:tag "procedure"]{Foreign Procedures}
+@title[#:tag "procedure"]{Foreign Procedures and Callbacks}
 
 @defform[#:kind "ffi2 type"
          #:literals (: =)
-         (-> arg ...
+         (-> arg-or-do ...
              maybe-varargs
              result maybe-errno
              option
              ...)
-         #:grammar ([arg type
+         #:grammar ([arg-or-do arg
+                               (code:line #:do [defn-or-expr ...])]
+                    [arg type
                          [arg-id : type]
                          [type = auto-expr]
                          [arg-id : type = auto-expr]]
-                    [maybe-varargs (code:line #:varargs arg ...)
+                    [maybe-varargs (code:line #:varargs arg-or-do ...)
                                    ϵ]
                     [result result-type
                             [result-id : result-type]]
@@ -50,16 +52,22 @@ Each @racket[arg] describes a type for an argument, each with an
 optional name @racket[arg-id] and an optional @racket[auto-expr]. When
 an argument has an @racket[auto-expr], no corresponding argument is
 provided to a callout. Each @racket[auto-expr] can refer to
-@racket[arg-id]s for arguments without @racket[auto-expr]s and for
+@racket[arg-id]s for arguments without @racket[auto-expr]s and to
 earlier arguments that have @racket[auto-expr]s. When an arrow type
 is used for a foreign callback (instead of a callout), @racket[arg-id]s
 and @racket[auto-expr]s have no effect.
 
-A @racket[result] can similarly have a @racket[result-id]. That
-identifier can be used (along with the @racket[arg-id]s) in a
-@racket[result-expr] supplied with @racket[#:result]. The value of
-@racket[#:result] becomes the result for a callout, and it is not
-used for a callback.
+Each @racket[#:do] form among the @racket[arg]s inserts additional
+expressions and definitions that are evaluated similar to
+@racket[auto-expr]s, that can refer to earlier argument names, to
+argument names without @racket[auto-expr]s, and to definitions from
+earlier @racket[#:do] forms. An @racket[auto-expr] can also refer to
+definitions from preceding @racket[#:do] forms.
+
+A @racket[result] can have a @racket[result-id]. That identifier can
+be used (along with the @racket[arg-id]s) in a @racket[result-expr]
+supplied with @racket[#:result]. The value of @racket[#:result]
+becomes the result for a callout, and it is not used for a callback.
 
 If @racket[#:errno] or @racket[#:get-last-error] (optionally
 with a @racket[errno-id]) is specified after
@@ -87,7 +95,7 @@ how a callback is handled:
 
  @item{@racket[#:atomic]: Adjusts a @tech{foreign callout} to
  potentially improve performance. The foreign procedure must not
- invoke any callbacks or other reach the Racket run-time system, so it
+ invoke any callbacks or otherwise reach the Racket run-time system, so it
  can be considered an atomic operation from the perspective of Racket.
  This option has no effect on @tech{foreign callbacks}.}
 

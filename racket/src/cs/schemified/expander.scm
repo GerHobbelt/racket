@@ -69698,7 +69698,7 @@
                                          in38_0))
                                        (raise-argument-error
                                         who31_0
-                                        "(or/c (procedure-arity-includes?/c 2) (procedure-arity-includes?/c 6))"
+                                        "(or/c (procedure-arity-includes/c 2) (procedure-arity-includes/c 6))"
                                         extension_0)))
                                    (if (procedure-arity-includes?
                                         extension_0
@@ -69717,7 +69717,7 @@
                                      (if get-info?30_0
                                        (raise-argument-error
                                         who31_0
-                                        "(procedure-arity-includes?/c 5)"
+                                        "(procedure-arity-includes/c 5)"
                                         extension_0)
                                        (if (procedure-arity-includes?
                                             extension_0
@@ -69729,7 +69729,7 @@
                                           (|#%app| extension_0 in38_0))
                                          (raise-argument-error
                                           who31_0
-                                          "(or/c (procedure-arity-includes?/c 1) (procedure-arity-includes?/c 5))"
+                                          "(or/c (procedure-arity-includes/c 1) (procedure-arity-includes/c 5))"
                                           extension_0)))))))
                             (if get-info?30_0
                               (begin
@@ -69739,7 +69739,7 @@
                                   (void)
                                   (raise-result-error
                                    'read-language
-                                   "(procedure-arity-includes?/c 2)"
+                                   "(procedure-arity-includes/c 2)"
                                    result-v_0))
                                 result-v_0)
                               (if (1/special-comment? result-v_0)
