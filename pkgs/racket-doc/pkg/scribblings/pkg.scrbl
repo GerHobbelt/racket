@@ -465,7 +465,7 @@ sub-commands.
 @subcommand{@command/toc{install} @nonterm{option} ... @nonterm{pkg-source} ...
  --- Installs the given @tech{package sources} (eliminating exact-duplicate @nonterm{pkg-source}s).
      If a given @nonterm{pkg-source} is @seclink["concept:auto"]{auto-installed} (to satisfy some other package's
-     dependency), then it is promoted to explicitly installed.
+     dependency), then it is promoted to explicitly installed unless the @DFlag{no-promote} flag is used.
 
      If no @nonterm{pkg-source}s are supplied and the @DFlag{clone}
      flag is not supplied, the current directory is installed as a
@@ -532,6 +532,12 @@ sub-commands.
         in @racketidfont{implies} or @racketidfont{update-implies} (see @secref["metadata"])
         for an installed or updated package.}
 
+  @item{@DFlag{adjacent-deps} --- When locating immediate dependencies of each given
+        @nonterm{pkg-source}, find @tech{adjacent} dependencies when possible: a directory or
+        file at the same place as @nonterm{pkg-source}, but using the dependent package's name
+        for the directory or file name (before any file extension). Dependencies of adjacent
+        dependencies re also found as adjacent when possible.}
+
   @item{@DFlag{link} --- Implies @exec{--type dir}
         and links the existing directory as an installed package, instead of copying the
         directory's content to install. Directory @tech{package sources} are treated as links
@@ -568,6 +574,17 @@ sub-commands.
         @tech{package name} must be mapped by the @tech{package catalog} to a
         Git or GitHub @tech{package source}.}
 
+  @item{@DFlag{attach} --- Implies @exec{--type name}, and expects the
+        package to exist already as a directory in the place where the
+        package would be installed for a catalog reference. This mode
+        is intended to complete an installation staged via @DFlag{destdir}.
+
+        The directory is attached similarly to @DFlag{link}, but recorded as
+        a catalog reference. If a file exists with the same path as the
+        directory plus the suffix @racket{.CHECKSUM}, then the
+        content of that file is recorded as the installed checked, and
+        the file is deleted to complete the install.}
+
   @item{@DFlag{source} --- Strips built elements of a package before installing, and implies @DFlag{copy}.
                            See also @secref["strip"].}
 
@@ -599,6 +616,9 @@ sub-commands.
 
   @item{@DFlag{pkgs} --- Disables default installation of the current directory when no @nonterm{pkg-source}s
         are supplied.}
+
+  @item{@DFlag{no-promote} --- Installs packages as @seclink["concept:auto"]{auto-installed} instead of explicitly
+        installed, and does not promote auto-installed packages.}
 
   @item{@DFlag{all-platforms} --- Considers package dependencies independent of the current platform
         (instead of filtering dependencies to platforms other than the current one).}
@@ -662,13 +682,18 @@ sub-commands.
   @item{@DFlag{dry-run} --- Prevents changes to the current installation. All installation and update work is
                             staged and checked, but the final installation step is skipped.}
 
+  @item{@DFlag{destdir} @nonterm{dir} --- Stages installed packages into @nonterm{dir}, instead of
+                        actually installing. The package forms written into @nonterm{dir} are
+                        suitable for moving into place and using @DFlag{attach} later,
+                        typically with a different Racket installation. See also @racketmodname[setup/doc-to-destdir].}
+
   @item{@DFlag{no-setup} --- Does not run @exec{raco setup} after installation. This behavior is also the case if the
         environment variable @envvar{PLT_PKG_NOSETUP} is set to any non-empty value.}
 
   @item{@DFlag{no-docs} or @Flag{D} --- Does not render documentation during setup after installation. This flag has no effect
         with @DFlag{no-setup}.}
 
-  @item{@DFlag{recompile-only} ---Constrains @exec{raco setup} to at most recompile a module from
+  @item{@DFlag{recompile-only} --- Constrains @exec{raco setup} to at most recompile a module from
         machine-independent form, reporting an error if compilation from source is needed. This
         behavior is useful as a sanity check when installing built packages (to ensure that they
         are properly built), but if a compilation error is reported, it will be after the package
@@ -698,7 +723,11 @@ sub-commands.
          #:changed "7.6.0.14" @elem{Allowed multiple @DFlag{catalog} flags.}
          #:changed "8.0.0.13" @elem{Added @litchar{git-url} as a @DFlag{type} option.}
          #:changed "8.17.0.2" @elem{Added the @DFlag{recompile-cache} flag.}
-         #:changed "8.18.0.7" @elem{Added the @DFlag{force-strip} flag.}]}
+         #:changed "8.18.0.7" @elem{Added the @DFlag{force-strip} flag.}
+         #:changed "9.2.0.6" @elem{Added the @DFlag{destdir}, @DFlag{attach}, @DFlag{no-promote}
+                                   and @DFlag{adjacent-deps} flags,
+                                   and adjusted @DFlag{skip-installed} to not complain about
+                                   a package installed from a different source when promoting.}]}
 
 
 @subcommand{@command/toc{update} @nonterm{option} ... @nonterm{pkg-source} ...
@@ -998,7 +1027,7 @@ package is created.
  @item{@DFlag{from-install} --- Treats @nonterm{directory-or-package} as the name of an installed package
        (instead of a directory).}
  @item{@DFlag{format} @nonterm{format} --- Specifies the archive format.
-      The allowed @nonterm{format}s are: @exec{zip} (the default), @exec{tgz}, and @exec{plt}.
+      The allowed @nonterm{format}s are: @exec{zip} (the default), @exec{tgz}, @exec{plt}, and @exec{dir}.
       This option must be specified if @DFlag{manifest} is not present.}
  @item{@DFlag{manifest} --- Creates a manifest file for a directory, rather than an archive.}
  @item{@DFlag{as-is} --- Bundles all content of the package directory as is, with no filtering
@@ -1013,9 +1042,13 @@ package is created.
        package's @filepath{info.rkt} (but not in @DFlag{as-is} mode, since recording @nonterm{package}
        means updating @filepath{info.rkt}).}
  @item{@DFlag{dest} @nonterm{dest-dir} --- Writes generated bundles to @nonterm{dest-dir}.}
+ @item{@DFlag{adjacent-deps} --- Also write bundles of @tech{adjacent} dependencies of
+       @nonterm{directory-or-package}.}
+
  ]
 
-@history[#:changed "8.14.0.2" @elem{Added the @DFlag{original} flag.}]
+@history[#:changed "8.14.0.2" @elem{Added the @DFlag{original} flag.}
+         #:changed "9.6.0.6" @elem{Added the @exec{dir} format and the @DFlag{adjacent-deps} flag.}]
 }
 
 @subcommand{@command/toc{config} @nonterm{option} ... @optional[@nonterm{key}] @nonterm{val} ... ---
