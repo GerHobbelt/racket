@@ -1151,7 +1151,7 @@ for @nonterm{key}.
     to a @filepath{catalog} directory catalog in @nonterm{dest-dir}, and also copies
     all package sources to a @filepath{pkgs} directory in @nonterm{dest-dir}.
 
-    Packages sources are downloaded and repacked as needed, so that
+    Packages sources are downloaded and re-bundled as needed, so that
     all packages are written to the @filepath{pkgs} directory as
     @filepath{.zip} archives. This conversion may change the checksum
     on each archived package.
@@ -1198,13 +1198,28 @@ for @nonterm{key}.
        then @DFlag{exclude} stops the consideration of @nonterm{pkg}'s
        dependencies (but does not necessarily exclude the dependencies, because they
        may be dependencies of an included package).}
+ @item{@DFlag{as-is} --- Bundles each package as is, with no filtering
+       of sources, compiled files, or repository elements in the package. This is the
+       default re-bundling mode.}
+ @item{@DFlag{source} --- Re-bundles only sources in each package; see @secref["strip"].}
+ @item{@DFlag{binary} --- Re-bundles compiled bytecode and rendered
+       documentation in each package; see @secref["strip"]. Any compiled files
+       in the package must be consistent with the running version of Racket.}
+ @item{@DFlag{binary-lib} --- Re-bundles compiled bytecode only in each package; see @secref["strip"].
+       Any compiled files in the package must be consistent with the running version of Racket.}
+ @item{@DFlag{built} --- Re-bundles compiled sources, bytecode, and rendered
+       documentation in each package, filtering repository elements; see @secref["strip"].
+       Any compiled files in the package must be consistent with the running version of Racket.}
  @item{@DFlag{fast-file-copy} --- Directly copies package files from the @nonterm{src-catalog}s
-       when available on the local filesystem, instead of extracting and repacking.}
+       when available on the local filesystem, instead of extracting and re-bundling.
+       This flag must be used only with @DFlag{as-is} mode.}
  ]
 
  @history[#:added "6.0.17"
           #:changed "7.7.0.1" @elem{Added @DFlag{include}, @DFlag{include-deps}, @DFlag{include-deps-platform},
-                                    @DFlag{exclude}, and @DFlag{fast-file-copy}.}]
+                                    @DFlag{exclude}, and @DFlag{fast-file-copy}.}
+          #:changed "9.2.0.5" @elem{Added @DFlag{as-is}, @DFlag{source}, @DFlag{binary},
+                                    @DFlag{binary-lib}, and @DFlag{built}.}]
 }
 
 @subcommand{@command/toc{archive} @nonterm{option} ... @nonterm{dest-dir} @nonterm{pkg} ...
@@ -1386,6 +1401,19 @@ The following @filepath{info.rkt} fields are used by the package manager:
        and indicates that the implied packages are automatically updated
        whenever the implying package is updated.}
 
+ @item{@definfofield{umbrella} --- a string for the name of an
+       @deftech{umbrella package}, which is a package that should be
+       considered the main representative for this package. An
+       @racketidfont{umbrella} definition affects only the
+       presentation of package lists and has no effect on
+       installation. A package whose name is @pkgname{@italic{X}-lib},
+       @pkgname{@italic{X}-doc}, @pkgname{@italic{X}-test}, or
+       @pkgname{@italic{X}-exe} is automatically treated as having an
+       umbrella package @pkgname{@italic{X}} if such a package exists.
+       A package has no umbrella if one is not inferred, no
+       @racketidfont{umbrella} definition is present, or
+       @racketidfont{umbrella} is defined as @racket[#f].}
+
  @item{@definfofield{setup-collects} --- a list of path strings and/or
        lists of path strings, which are used as collection names to
        set up via @exec{raco setup} after the package is installed, or
@@ -1393,6 +1421,13 @@ The following @filepath{info.rkt} fields are used by the package manager:
        setup. By default, only collections included in the package are
        set up (plus collections for global documentation indexes and
        links).}
+
+ @item{@definfofield{language-families} --- a list of strings naming
+       language families for which the package is primarily of
+       interest. The default is @racket['("Racket")]. If a package
+       implements is own language, then it should declare the language
+       only if multiple other packages (not under one @tech{umbrella
+       package}) are expected to also claim the language.}
 
  @item{@definfofield{license} --- a @deftech{license S-expression}
   specifying the package's license. A license S-expression represents an @deftech{SPDX}
@@ -1466,11 +1501,27 @@ The following @filepath{info.rkt} fields are used by the package manager:
        @secref["strip"]. Absence of this definition is treated the
        same as @racket[(list 'source #f)].}
 
+ @item{@definfofield{build-platforms} --- a list of strings describing
+       platforms where the package should be expected to work. This
+       declaration is intended for use by automated test and build
+       systems, and it does not influence installation. A string
+       matches when it corresponds to the result on the platform of
+       @racket[(system-type)], @racket[(system-type 'os*)],
+       @racket[(system-type 'arch)], or a hyphenated combination of
+       @racket[(system-type 'os*)] and @racket[(system-type 'arch)].
+       The matching rules my be extended in the future to match
+       additional strings. A @racketidfont{build-platforms} value of
+       @racket[#f] is the default, implying that the package is meant
+       to build and pass its tests on all platforms.}
+
 ]
 
 @history[#:changed "6.1.0.5" @elem{Added @racketidfont{update-implies}.}
          #:changed "6.1.1.6" @elem{Added @racketidfont{distribution-preference}.}
-         #:changed "8.2.0.7" @elem{Added @racketidfont{license}.}]
+         #:changed "8.2.0.7" @elem{Added @racketidfont{license}.}
+         #:changed "9.2.0.4" @elem{Added @racketidfont{language-families},
+                                   @racketidfont{umbrella}, and
+                                   @racketidfont{build-platforms}.}]
 
 @; ----------------------------------------
 
