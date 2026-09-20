@@ -415,6 +415,10 @@
                                       'is-s?
                                       (with-syntax ([kind (or (attribute kind) #'#:gcable)])
                                         #'(fill-name (ffi2-malloc kind name)
+                                                     field-name ...))]
+                                     [_:identifier
+                                      #'(lambda (field-name ...)
+                                          (fill-name (ffi2-malloc #:gcable name)
                                                      field-name ...))])
                                    (syntax-parse stx
                                      [(_ (~datum field-name) (~optional kind::malloc-kind) expr)
@@ -1254,11 +1258,13 @@
                                     (ffi2-type-predicate rhs-t)))
                             (lambda (key vals left right)
                               (cons (list 'select key vals (car left) (car right))
-                                    #`(#%foreign-inline
-                                       (ffi2-system-type--select #,key #,vals #,(cdr left) #,(cdr right)))))))
-
-    (make-ffi2-type 'system-type-case (car p) (cdr p)
-                    #:category 'scalar))
+                                    #`(lambda (v)
+                                        (if (#%foreign-inline
+                                             (ffi2-system-type-select #,key #,vals #t #f))
+                                            (#,(cdr left) v)
+                                            (#,(cdr right) v)))))))
+  (make-ffi2-type 'system-type-case (car p) (cdr p)
+                  #:category 'scalar))
 
 (define-for-syntax (parse-system-type-case/abi stx)
   (parse-system-type-case stx

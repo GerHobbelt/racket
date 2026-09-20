@@ -15,8 +15,8 @@
          (struct_t maybe-tag
            [field-id field-type]
            ...)
-         #:grammar ([maybe-tag id
-                               ϵ])]{
+         #:grammar ([maybe-tag code:blank
+                               id])]{
 
 Describes a type that is represented by a @tt{struct} declaration on
 the C side and a @tech{pointer} object in the Racket side. If
@@ -75,7 +75,10 @@ options (such as @racket[#:tag] or @racket[#:racket->c]), then
        @racketidfont{set-@racket[_name]-@racket[field-id]!}. An
        optional allocation mode can be provided before the field
        subexpressions, and the default allocation mode is
-       @racket[#:gcable].}
+       @racket[#:gcable]. The @racket[_name] expression can also
+       be used not in a application position, in which case it returns
+       a procedure that accepts field values and allocates an
+       instance.}
 
 ]
 
@@ -121,8 +124,8 @@ pointer.
          (union_t maybe-tag
            [field-id field-type]
            ...)
-         #:grammar ([maybe-tag id
-                               ϵ])]{
+         #:grammar ([maybe-tag code:blank
+                               id])]{
 
 Similar to @racket[struct_t], but for a type that uses @tt{union} on the
 C side.
@@ -254,8 +257,8 @@ managed by the Racket garbage collector.
 
 @defform[#:kind "ffi2 type"
          (list_t maybe-mode elem-type maybe-length)
-         #:grammar ([maybe-length (code:line #:length len-expr)
-                                  ϵ])]{
+         #:grammar ([maybe-length code:blank
+                                  (code:line #:length len-expr)])]{
 
 Constructs a type that is like @racket[(array_t elem-type *)], but where
 the Racket-side representation is a list of array values. Conversion

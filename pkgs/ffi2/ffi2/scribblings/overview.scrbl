@@ -143,12 +143,19 @@ is likely to find the library as bundled with Racket or as supplied by
 the operating system---usually something like
 @filepath{/usr/lib/libcairo.2.so} on a Unix installation.
 
+On Windows, if you are not running in DrRacket, then
+@filepath{libcairo-2.dll} will be found, but loading it may fail
+because its dependencies cannot be found; the DLLs bundled with Racket
+are not in the operating system's search path. The easy solution is to
+require @racketmodname[racket/draw/unsafe/cairo-lib #:indirect], which
+will load all dependencies.
+
 @; --------------------------------------------------
 
 @subsection{Finding C Functions}
 
 Assuming that @racket[cairo-lib] is successful defined for the loaded
-Cairo shared library, we can use it extract the addresses of functions
+Cairo shared library, we can use it to extract the addresses of functions
 from the library. Let's start with @cpp{cairo_create}, which accepts a
 surface (like the one we have from a Racket bitmap) to create a drawing
 context.
@@ -169,8 +176,9 @@ the function the simplest possible type, which is a function type using
 @racket[->] that expects a generic pointer argument and returns a
 generic pointer argument:
 @;
-@margin-note*{The @racket[->] form is used here with Racket's ``infix
- dot'' notation. Surrounding the @racket[->] with space-separated dots
+@margin-note*{The @racket[->] form is used here with Racket's
+ @seclink[#:doc guide-doc "lists-and-syntax"]{``infix dot''} notation.
+ Surrounding the @racket[->] with space-separated dots
  causes the @racket[->] to be moved to the front of the parenthesized
  form.}
 
@@ -737,12 +745,17 @@ interesting part is the function pointer passed as @cpp{write_func}.
 
 For the type of the function argument to
 @racket[cairo_surface_write_to_png_stream], we can nest a @racket[->]
-type for the argument inside a @racket[->] type for the function:
+type for the argument inside a @racket[->] type for the function.
+We'll also handle the result status by raising an
+exception if the status is not @racket[0].
 
 @ffi2-examples[
  #:no-prompt
 (define-cairo cairo_surface_write_to_png_stream
-  (cairo_surface_t* (ptr_t ptr_t int_t . -> . int_t) ptr_t . -> . int_t))
+  (cairo_surface_t* (ptr_t ptr_t int_t . -> . int_t) ptr_t
+                           . -> . (r : int_t)
+                           #:result (unless (zero? r)
+                                      (error "write failed"))))
 ]
 
 Then, when we pass a Racket function as the second argument to
@@ -761,6 +774,7 @@ write out bytes of the PNG encoding:
     (define png-data (make-bytes len))
     (ffi2-memcpy (ffi2-cast png-data #:from bytes_ptr_t) data len)
     (write-bytes png-data png-out)
+    (code:comment "return 0 to mean \"success\"")
     0)
   (uintptr_t->ptr_t 0))
  (eval:alts #,(hspace 1) (void))
@@ -777,7 +791,7 @@ instead of @racket[bytes_ptr_t], would make a copy of the byte string,
 which would not work.
 
 One catch here is that a callback from a foreign function is always in
-@tech{atomic mode}. In this case, the callback writes to a port
+@tech[#:doc ffi-unsafe-doc]{atomic mode}. In this case, the callback writes to a port
 @racket[png-out] that is not used from any other thread, so atomic mode
 causes no problems; writing will not get stuck trying to acquire a lock.
 
@@ -950,8 +964,8 @@ some explicit indicator of which choice applies at any given point.
 
 This level of representation detail and punning is closely related to
 pointer arithmetic, which also ends up being used in similar places. As
-in C, the @racket[ffi2] library can provides a convenient veneer for
-certain forms of pointer arithmetic by view pointers as references to
+in C, the @racketmodname[ffi2] library can provides a convenient veneer for
+certain forms of pointer arithmetic by viewing pointers as references to
 arrays.
 
 @; --------------------------------------------------

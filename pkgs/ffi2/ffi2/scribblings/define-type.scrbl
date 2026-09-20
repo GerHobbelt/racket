@@ -81,7 +81,8 @@ procedures:
  @item{@racket[#:predicate] provides a predicate procedure as the
  result of @racket[predicate-expr]. This predicate is used when checks
  are enabled for Racket values to be converted to C for the type
- @racket[name], but the predicate can be skipped on request. The
+ @racket[name], but the predicate can be skipped for unsafe mode as
+ enabled via @racket[(#%declare #:unsafe)] at the use of the type. The
  predicate determines whether a value is suitable as an argument to a
  procedure provided by @racket[#:racket->c]. If @racket[#:predicate] is
  not provided, then the predicate associated with @racket[parent-type]
@@ -237,7 +238,7 @@ value is kept in integer form.
 }
 
 @defform[#:kind "ffi2 type/abi"
-         #:literals (else)
+         #:literals (else os os* arch word)
          (system-type-case key
            [(val ...) type/abi]
            [else type/abi])

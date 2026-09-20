@@ -18373,6 +18373,11 @@
                                     mi137_0
                                     #t)
                                    (void))
+                                 (if (not instance-phase_0)
+                                   (|#%app|
+                                    (module-force-bulk-binding m_1)
+                                    (namespace-bulk-binding-registry ns138_0))
+                                   (void))
                                  (if skip-run?122_0
                                    (void)
                                    (let ((small-ht_0
@@ -19212,7 +19217,7 @@
                   (lambda (s_0) (error "bad syntax:" s_0)))))
             (lambda (t_0) v_0))))))))
 (define 1/make-set!-transformer
-  (let ((finish912
+  (let ((finish915
          (make-struct-type-install-properties
           '(set!-transformer)
           1
@@ -19232,7 +19237,7 @@
             #f
             #f
             '(1 . 0))))
-      (let ((effect913 (finish912 struct:set!-transformer_0)))
+      (let ((effect916 (finish915 struct:set!-transformer_0)))
         (let ((set!-transformer1_0
                (|#%name|
                 set!-transformer
