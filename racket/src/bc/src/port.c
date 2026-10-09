@@ -975,6 +975,18 @@ static void post_progress(Scheme_Input_Port *ip)
        or peek needs to start over */
     SCHEME_CAR(ip->unless) = scheme_true;
     ip->unless = NULL;
+
+    /* A blocked thread may be waiting on a semaphore for a file
+       descriptor, instead of polling its "unless" */
+    if (!ip->closed) {
+      rktio_fd_t *fd;
+      if (SAME_OBJ(ip->sub_type, fd_input_port_type))
+        fd = ((Scheme_FD *)ip->port_data)->fd;
+      else
+        fd = scheme_get_port_rktio_socket((Scheme_Object *)ip);
+      if (fd)
+        scheme_wake_fd_readers(fd);
+    }
   }
 }
 
@@ -1119,7 +1131,7 @@ intptr_t scheme_get_byte_string_unless(const char *who,
 {
   Scheme_Input_Port *ip;
   intptr_t got = 0, total_got = 0, gc;
-  int special_ok = special_is_ok, check_special, recheck_peeked = 0;
+  int special_ok = special_is_ok, check_special, recheck_peeked = 0, depipe_short;
   Scheme_Get_String_Fun gs;
   Scheme_Peek_String_Fun ps;
   Scheme_Object *orig_peek_skip;
@@ -1151,6 +1163,8 @@ intptr_t scheme_get_byte_string_unless(const char *who,
 
   while (1) {
     SCHEME_USE_FUEL(1);
+
+    depipe_short = 0;
 
     if (ip->input_lock)
       scheme_wait_input_allowed(ip, only_avail);
@@ -1229,14 +1243,30 @@ intptr_t scheme_get_byte_string_unless(const char *who,
 	    l = size;
 
 	  if (l) {
-	    scheme_get_byte_string("depipe", ip->peeked_read,
-				   buffer, offset + got, l,
-				   1, peek, peek_skip);
-	    size -= l;
-	    got += l;
-	    peek_skip = scheme_make_integer(0);
-	    if (!peek && ip->progress_evt)
-	      post_progress(ip);
+            intptr_t n;
+            /* Don't block, and pass along `unless_evt`, since a
+               thread swap is possible in the nested call; that way,
+               we don't copy into `buffer` after a progress evt is
+               ready (which a caller can rely on to share a buffer
+               across threads), and we don't wait on the peek
+               pipe after another thread drains it */
+	    n = scheme_get_byte_string_unless("depipe", ip->peeked_read,
+                                              buffer, offset + got, l,
+                                              2, peek, peek_skip,
+                                              unless_evt);
+            if (n < l) {
+              /* Progress evt became ready or another thread took
+                 peeked bytes; try again */
+              depipe_short = 1;
+              l = (n > 0) ? n : 0;
+            }
+	    if (l) {
+              size -= l;
+              got += l;
+              peek_skip = scheme_make_integer(0);
+              if (!peek && ip->progress_evt)
+                post_progress(ip);
+            }
 	  }
 	} else
 	  peek_skip = scheme_bin_minus(peek_skip, scheme_make_integer(l));
@@ -1333,9 +1363,11 @@ intptr_t scheme_get_byte_string_unless(const char *who,
       }
     }
 
-    recheck_peeked = 0;
+    /* If the peek pipe had fewer bytes than expected, start over
+       to look at the peek pipe again: */
+    recheck_peeked = depipe_short;
 
-    if (size) {
+    if (size && !depipe_short) {
       int nonblock;
 
       if (only_avail == 2) {
@@ -2309,10 +2341,13 @@ static intptr_t get_one_byte_slow(const char *who,
       if (!ip->progress_evt && !ip->p.count_lines)
         ip->slow = 0;
 
-      /* Call port's get function. */
+      /* Call port's get function. If other threads can peek via the
+         port's get function, then don't block here, because blocking
+         needs to go through the general function to find out when
+         another thread moves bytes into the peek buffer. */
       gs = ip->get_string_fun;
 
-      gc = gs(ip, buffer, offset, 1, 0, NULL);
+      gc = gs(ip, buffer, offset, 1, (ip->unless_cache ? 1 : 0), NULL);
 	
       if (ip->progress_evt && (gc > 0))
         post_progress(ip);
@@ -2367,7 +2402,9 @@ static MZ_INLINE intptr_t get_one_byte(GC_CAN_IGNORE const char *who,
 
       gs = ip->get_string_fun;
 
-      v = gs(ip, buffer, 0, 1, 0, NULL);
+      /* as in get_one_byte_slow(), block only if no other thread can
+         peek via the port's get function: */
+      v = gs(ip, buffer, 0, 1, (ip->unless_cache ? 1 : 0), NULL);
     
       if (v) {
         if (v == SCHEME_SPECIAL) {
@@ -5058,6 +5095,13 @@ static intptr_t fd_get_string_slow(Scheme_Input_Port *port,
       bc = rktio_read_converted(scheme_rktio, fip->fd, fip->buffer, target_size, fip->bufwidths);
     } else {
       bc = rktio_read(scheme_rktio, fip->fd, target + target_offset, target_size);
+    }
+
+    if (bc && (bc != RKTIO_READ_ERROR)
+        && !rktio_fd_is_regular_file(scheme_rktio, fip->fd)) {
+      /* Since we took input, the file descriptor might not become
+         ready for other threads that are waiting on it */
+      scheme_wake_fd_readers(fip->fd);
     }
 
     if (bc == 0)
