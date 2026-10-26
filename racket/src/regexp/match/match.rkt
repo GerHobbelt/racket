@@ -489,7 +489,9 @@
 (define (lookahead-matcher match? sub-m n-start num-n next-m)
   (lambda (s pos start limit end state stack)
     (define old-state (save-groups state n-start num-n))
-    (define pos2 (sub-m s pos start limit end state null))
+    ;; A lookahead can see past `limit` (which is less than `end`
+    ;; within a lookbehind), so use `end` as the limit
+    (define pos2 (sub-m s pos start end end state null))
     (cond
      [match?
       (and pos2
@@ -521,7 +523,7 @@
          [pos2
           (restore-groups state old-state n-start num-n)]
          [else
-          (next-m s pos start limit end state stack)])]))))
+          (loop (sub1 lb-pos))])]))))
 
 (define (conditional/reference-matcher n m1 m2)
   (lambda (s pos start limit end state stack)

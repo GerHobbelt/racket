@@ -2200,4 +2200,41 @@
 
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(test #f regexp-match-positions #px"(?!é)(?!$)" "éé")
+(test #f regexp-match-positions #px"(?!é)(?!$)" (open-input-string "éé"))
+
+(test #f regexp-match? "^[^ſ]$" "ſ")
+(test #t regexp-match? "^[^ſ]$" "ß")
+(test #t regexp-match? "^[^\uD7FF]$" "ß")
+(test #t regexp-match? "^[^\uE000]$" "ß")
+
+(test #f regexp-match? #px"[\u0406-\u04F0]" "\u0405")
+(test #t regexp-match? #px"[\u0406-\u04F0]" "\u0406")
+(test #t regexp-match? #px"[\u0406-\u04F0]" "\u044D")
+(test #t regexp-match? #px"[\u0406-\u04F0]" "\u04F0")
+(test #f regexp-match? #px"[\u0406-\u04F0]" "\u04F1")
+
+(test #f regexp-match? "(?<!.)x" "éx")
+(test #f regexp-match? #"(?<!(?:ab|a))x" #"abx")
+(test #f regexp-match? #"(?<!(?:a|ab))x" #"abx")
+(test #f regexp-match? #"(?<!(?:ab|a))x" #"ax")
+(test #f regexp-match? #"(?<!(?:a|ab))x" #"ax")
+(test #t regexp-match? #"(?<!(?:ab|a))x" #"acx")
+(test #t regexp-match? #"(?<!(?:a|ab))x" #"acx")
+(test #t regexp-match? #"(?<=(?:ab|a))x" #"abx")
+(test #t regexp-match? #"(?<=(?:a|ab))x" #"ax")
+(test #t regexp-match? #"(?<=(?:ab|a))x" #"ax")
+(test #t regexp-match? #"(?<=(?:a|ab))x" #"abx")
+(test #f regexp-match? #"(?<=(?:ab|a))x" #"acx")
+(test #f regexp-match? #"(?<=(?:a|ab))x" #"acx")
+
+(test #t regexp-match? "(?:)(?:)" "")
+
+(test #t regexp-match? "(?<=b(?=a))a$" "ba")
+(test #t regexp-match? "(?<=b)(?=a)a$" "ba")
+(test #t regexp-match? "(?<=b(?(?=a)|c))a$" "ba")
+(test #t regexp-match? "(?<=b(?(?=a)|c))a$" "bca")
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (report-errs)
